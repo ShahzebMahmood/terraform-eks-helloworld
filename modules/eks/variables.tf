@@ -27,7 +27,7 @@ variable "desired_capacity" {
 variable "max_size" {
   description = "Max number of worker nodes"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "min_size" {
@@ -39,5 +39,5 @@ variable "min_size" {
 variable "instance_type" {
   description = "EC2 instance type for worker nodes"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.micro"
 }
