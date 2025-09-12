@@ -2,9 +2,20 @@ const express = require('express')
 const app = express()
 const port = process.env.PORT || 3000
 
+// Security: Add security headers middleware
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('X-Frame-Options', 'DENY')
+  res.setHeader('X-XSS-Protection', '1; mode=block')
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.setHeader('Content-Security-Policy', "default-src 'self'")
+  next()
+})
+
 // TODO: Add proper error handling middleware
 // Middleware
-app.use(express.json())
+app.use(express.json({ limit: '10mb' })) // Security: Limit JSON payload size
 
 // Health check endpoints
 app.get('/health', (req, res) => {

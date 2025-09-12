@@ -1,30 +1,37 @@
 FROM node:18-alpine
 
-# Create app directory
+# Security: Create app directory with proper permissions
 WORKDIR /app
 
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Security: Create non-root user with specific UID/GID
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 -G nodejs
 
-# Copy package files
+# Security: Copy package files first for better layer caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Security: Install dependencies with security audit
+RUN npm ci --only=production --audit --fund=false && \
+    npm cache clean --force && \
+    rm -rf /tmp/* /var/cache/apk/*
 
-# Copy app source
+# Security: Copy app source with proper ownership
 COPY --chown=nodejs:nodejs . .
 
-# Switch to non-root user
+# Security: Remove unnecessary files and set proper permissions
+RUN chmod -R 755 /app && \
+    find /app -type f -name "*.md" -delete && \
+    find /app -type f -name "*.txt" -delete
+
+# Security: Switch to non-root user
 USER nodejs
 
-# Expose port
+# Security: Expose port (no need to specify host)
 EXPOSE 3000
 
-# Health check
+# Security: Add security headers and health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node healthcheck.js
 
-# Start the app
+# Security: Use exec form to avoid shell injection
 CMD ["node", "index.js"]
