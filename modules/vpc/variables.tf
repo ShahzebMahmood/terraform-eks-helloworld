@@ -1,14 +1,3 @@
-variable "cluster_name" {
-  description = "The name of the EKS cluster."
-  type        = string
-}
-
-variable "tags" {
-  description = "A map of tags to assign to the resources."
-  type        = map(string)
-  default     = {}
-}
-
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
   type        = string

@@ -51,3 +51,20 @@ variable "instance_type" {
   type        = string
   default     = "t3.medium"
 }
+
+variable "environment" {
+  description = "Deployment environment (e.g., dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "tags" {
+  description = "A map of tags to assign to the resources."
+  type        = map(string)
+  default     = {
+    Project     = "TF_AWS_Test"
+    Environment = "dev"
+    ManagedBy   = "Terraform"
+  }
+  
+}
