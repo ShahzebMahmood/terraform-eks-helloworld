@@ -41,7 +41,7 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.ECR_REPO != ''
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
   deploy-infrastructure:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.AWS_ACCESS_KEY_ID != ''
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -116,7 +116,7 @@ jobs:
   deploy-application:
     needs: [build-and-push, deploy-infrastructure]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && secrets.CLUSTER_NAME != ''
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
