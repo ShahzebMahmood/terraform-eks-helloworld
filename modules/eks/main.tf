@@ -1,11 +1,13 @@
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = var.cluster_role_arn
-  version  = "1.33"  # Updated EKS version
+  version  = "1.29"
 
   vpc_config {
     subnet_ids = var.subnet_ids
   }
+
+  tags = var.tags
 }
 
 resource "aws_eks_node_group" "this" {
@@ -21,6 +23,8 @@ resource "aws_eks_node_group" "this" {
   }
 
   instance_types = [var.instance_type]
+
+  tags = var.tags
 
   depends_on = [
     aws_eks_cluster.this

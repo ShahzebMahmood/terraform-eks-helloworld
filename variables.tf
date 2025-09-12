@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "cluster_name" {
   description = "EKS cluster name"
   type        = string
-  default     = "tf-aws-test"
+  default     = "thrive-cluster-test"
 }
 
 variable "vpc_cidr" {
@@ -43,13 +43,13 @@ variable "min_size" {
 variable "max_size" {
   description = "Max number of worker nodes"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "instance_type" {
   description = "EC2 instance type for worker nodes"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.micro"
 }
 
 variable "environment" {
@@ -58,13 +58,21 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "alert_email" {
+  description = "Email address for billing and monitoring alerts (optional)"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "A map of tags to assign to the resources."
   type        = map(string)
-  default     = {
-    Project     = "TF_AWS_Test"
+  default = {
+    Project     = "Thrive_Cluster_Test"
     Environment = "dev"
     ManagedBy   = "Terraform"
+    Owner       = "DevOps Team"
+    CostCenter  = "Engineering"
+    Application = "Hello-World"
   }
-  
 }
