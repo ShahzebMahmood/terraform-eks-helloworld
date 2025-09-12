@@ -6,7 +6,8 @@ module "vpc" {
     vpc_cidr             = var.vpc_cidr
     public_subnets_count = var.public_subnets_count
     availability_zones   = var.availability_zones
-    }
+}
+
 # ---------------------------
 # IAM Module
 # ---------------------------
@@ -15,6 +16,7 @@ module "iam" {
   cluster_name    = var.cluster_name
   cluster_role_name = "${var.cluster_name}-cluster-role"
   node_role_name    = "${var.cluster_name}-node-role"
+  
 }
 
 # ---------------------------
