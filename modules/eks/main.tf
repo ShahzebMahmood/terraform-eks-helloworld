@@ -1,16 +1,11 @@
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
   role_arn = var.cluster_role_arn
-  version  = "1.27"
+  version  = "1.26"
 
   vpc_config {
     subnet_ids = var.subnet_ids
   }
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_cluster_policy,
-    aws_iam_role_policy_attachment.eks_vpc_policy
-  ]
 }
 
 resource "aws_eks_node_group" "this" {
@@ -30,13 +25,4 @@ resource "aws_eks_node_group" "this" {
   depends_on = [
     aws_eks_cluster.this
   ]
-}
-
-# Optional: Generate kubeconfig for local usage
-data "aws_eks_cluster" "cluster" {
-  name = aws_eks_cluster.this.name
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = aws_eks_cluster.this.name
 }
