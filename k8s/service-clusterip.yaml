@@ -1,0 +1,13 @@
+# Alternative: ClusterIP service (completely free)
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-world-service-clusterip
+spec:
+  selector:
+    app: hello-world
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: ClusterIP  # Only accessible within cluster

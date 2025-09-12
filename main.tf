@@ -55,6 +55,16 @@ module "monitoring" {
 }
 
 # ---------------------------
+# Secrets Management Module
+# ---------------------------
+module "secrets" {
+  source        = "./modules/secrets"
+  project_name  = var.cluster_name
+  pod_role_name = "hello-world-pod-role"
+  tags          = var.tags
+}
+
+# ---------------------------
 # Billing Alerts Module (Free Tier Monitoring)
 # ---------------------------
 module "billing" {

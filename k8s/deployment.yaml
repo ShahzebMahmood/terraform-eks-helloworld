@@ -36,6 +36,7 @@ spec:
           value: "production"
         - name: PORT
           value: "3000"
+        # Security: Resource limits and requests
         resources:
           requests:
             memory: "64Mi"
@@ -43,6 +44,16 @@ spec:
           limits:
             memory: "128Mi"
             cpu: "100m"
+        # Security: Security context
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          runAsGroup: 1001
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
         livenessProbe:
           httpGet:
             path: /health

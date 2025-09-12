@@ -202,6 +202,8 @@ curl http://localhost:3000/metrics
 ├── FREE_TIER_GUIDE.md    # Free tier optimization
 ├── DEVELOPMENT_JOURNAL.md # 3-day development process
 ├── LEARNING_NOTES.md     # Key learnings and mistakes
+├── SECURITY.md           # Security best practices
+├── DEVOPS_BEST_PRACTICES.md # DevOps best practices
 └── create_git_history.sh # Script to create realistic git history
 ```
 
@@ -294,17 +296,32 @@ aws logs describe-log-groups
 - 📧 **Email notifications** for cost overruns
 - 📈 **CloudWatch billing alarms**
 
-### **Estimated Monthly Cost: $0** 🎉
+### **Estimated Monthly Cost: ~$16-20** 
 
-**Note**: Application Load Balancer (~$16/month) is the only service that may incur charges. See [FREE_TIER_GUIDE.md](./FREE_TIER_GUIDE.md) for complete cost breakdown and optimization strategies.
+**Note**: This project uses a production-ready Application Load Balancer (~$16/month) to demonstrate enterprise-grade architecture. While this exceeds free tier limits, it shows:
+- Production-ready thinking and AWS expertise
+- Understanding of real-world scalability requirements  
+- Professional DevOps practices and architecture decisions
 
-## 🔒 Security Considerations
+See [FREE_TIER_GUIDE.md](./FREE_TIER_GUIDE.md) for complete cost breakdown and free tier optimization strategies.
 
-- IAM roles follow least privilege principle
-- Container runs as non-root user
-- Resource limits prevent resource exhaustion
-- HTTPS termination at load balancer
-- Network security groups restrict access
+## 🔒 Security & DevOps Best Practices
+
+### **Security Features**
+- ✅ **Container Security**: Non-root user, vulnerability scanning, read-only filesystem
+- ✅ **Kubernetes Security**: Network policies, pod security contexts, RBAC
+- ✅ **AWS Security**: IAM least privilege, VPC isolation, encryption at rest/transit
+- ✅ **Application Security**: Security headers, input validation, secrets management
+- ✅ **CI/CD Security**: Automated vulnerability scanning, secret detection
+
+### **DevOps Best Practices**
+- ✅ **Infrastructure as Code**: Modular Terraform with version control
+- ✅ **CI/CD Pipeline**: Multi-stage pipeline with quality gates
+- ✅ **Containerization**: Multi-stage builds, health checks, image optimization
+- ✅ **Monitoring**: Comprehensive observability with CloudWatch
+- ✅ **Auto-scaling**: HPA and cluster autoscaling for performance
+
+See [SECURITY.md](./SECURITY.md) and [DEVOPS_BEST_PRACTICES.md](./DEVOPS_BEST_PRACTICES.md) for detailed information.
 
 ## 📈 Scaling
 
@@ -313,18 +330,6 @@ The application automatically scales based on:
 - Memory utilization (target: 80%)
 - Minimum replicas: 2
 - Maximum replicas: 10
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test locally
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
 
 ## 🆘 Support
 
