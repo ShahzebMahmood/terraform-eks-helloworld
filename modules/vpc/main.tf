@@ -3,17 +3,17 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "vpc-${var.vpc_cidr}"
-  }
+  })
 }
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "igw-${var.vpc_cidr}"
-  }
+  })
 }
 
 resource "aws_subnet" "public" {
@@ -23,17 +23,17 @@ resource "aws_subnet" "public" {
   map_public_ip_on_launch = true
   availability_zone       = var.availability_zones[count.index]
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "public-subnet-${count.index + 1}"
-  }
+  })
 }
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "public-rt"
-  }
+  })
 }
 
 resource "aws_route_table_association" "public" {

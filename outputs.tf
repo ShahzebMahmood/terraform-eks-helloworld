@@ -22,3 +22,23 @@ output "eks_kubeconfig" {
   description = "Kubeconfig YAML"
   value       = module.eks.kubeconfig
 }
+
+output "ecr_repository_uri" {
+  description = "ECR repository URI for hello-world image"
+  value       = module.ecr.hello_world_repo_uri
+}
+
+output "monitoring_dashboard_url" {
+  description = "CloudWatch Dashboard URL"
+  value       = module.monitoring.dashboard_url
+}
+
+output "sns_topic_arn" {
+  description = "SNS Topic ARN for alerts"
+  value       = module.monitoring.sns_topic_arn
+}
+
+output "billing_alarm_arn" {
+  description = "Billing alarm ARN for cost monitoring"
+  value       = module.billing.billing_alarm_arn
+}

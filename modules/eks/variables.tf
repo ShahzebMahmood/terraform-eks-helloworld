@@ -41,3 +41,9 @@ variable "instance_type" {
   type        = string
   default     = "t3.micro"
 }
+
+variable "tags" {
+  description = "A map of tags to assign to the resources"
+  type        = map(string)
+  default     = {}
+}
