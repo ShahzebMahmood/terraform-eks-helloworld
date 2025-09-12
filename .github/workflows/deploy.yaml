@@ -32,11 +32,11 @@ jobs:
 
       - name: Run tests
         working-directory: ./app
-        run: npm test || echo "No tests configured yet - TODO: add proper tests"
+        run: 'npm test || echo "No tests configured yet - TODO: add proper tests"'
 
       - name: Lint code
         working-directory: ./app
-        run: npm run lint || echo "No linting configured yet - TODO: add ESLint"
+        run: 'npm run lint || echo "No linting configured yet - TODO: add ESLint"'
 
   build-and-push:
     needs: test
