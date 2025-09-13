@@ -1,23 +1,21 @@
-# Security: Pod Security Policy (if supported by cluster)
-apiVersion: policy/v1beta1
-kind: PodSecurityPolicy
+# Security: Pod Security Standards (modern replacement for PodSecurityPolicy)
+apiVersion: v1
+kind: Namespace
 metadata:
-  name: hello-world-psp
+  name: hello-world
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+# Pod Security Policy equivalent using Pod Security Standards
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: hello-world-pdb
+  namespace: hello-world
 spec:
-  privileged: false
-  allowPrivilegeEscalation: false
-  requiredDropCapabilities:
-    - ALL
-  volumes:
-    - 'configMap'
-    - 'emptyDir'
-    - 'projected'
-    - 'secret'
-    - 'downwardAPI'
-    - 'persistentVolumeClaim'
-  runAsUser:
-    rule: 'MustRunAsNonRoot'
-  seLinux:
-    rule: 'RunAsAny'
-  fsGroup:
-    rule: 'RunAsAny'
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: hello-world

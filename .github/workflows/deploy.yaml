@@ -121,22 +121,24 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
           restore-keys: |
-            terraform-state-
+            terraform-state-main-${{ github.run_number }}-
+            terraform-state-main-
 
       - name: Terraform Init
         run: terraform init
 
       - name: Cache Terraform state after init
         if: always()
+        continue-on-error: true
         uses: actions/cache/save@v3
         with:
           path: |
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
       - name: Terraform Validate
         run: terraform validate
@@ -182,13 +184,14 @@ jobs:
 
       - name: Cache Terraform state after plan
         if: always()
+        continue-on-error: true
         uses: actions/cache/save@v3
         with:
           path: |
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
       - name: Terraform Apply
         id: terraform-apply
@@ -201,13 +204,14 @@ jobs:
 
       - name: Cache Terraform state after apply
         if: always()
+        continue-on-error: true
         uses: actions/cache/save@v3
         with:
           path: |
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
   cleanup-on-failure:
     needs: [deploy-infrastructure]
@@ -243,9 +247,10 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
           restore-keys: |
-            terraform-state-
+            terraform-state-main-${{ github.run_number }}-
+            terraform-state-main-
           fail-on-cache-miss: false
 
       - name: Terraform Init
@@ -341,13 +346,14 @@ jobs:
 
       - name: Cache Terraform state after cleanup
         if: always()
+        continue-on-error: true
         uses: actions/cache/save@v3
         with:
           path: |
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-main
+          key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
   deploy-application:
     needs: [build-and-push, deploy-infrastructure, cleanup-on-failure]
