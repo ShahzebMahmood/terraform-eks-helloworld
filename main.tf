@@ -61,6 +61,7 @@ module "secrets" {
   source            = "./modules/secrets"
   project_name      = var.cluster_name
   pod_role_name     = "hello-world-pod-role"
+  pod_role_arn      = module.iam.hello_world_pod_role_arn
   oidc_provider_arn = module.eks.cluster_oidc_provider_arn
   oidc_provider_url = module.eks.cluster_oidc_issuer_url
   tags              = var.tags

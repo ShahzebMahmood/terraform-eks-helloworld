@@ -8,6 +8,11 @@ variable "pod_role_name" {
   type        = string
 }
 
+variable "pod_role_arn" {
+  description = "ARN of the IAM role for the pod"
+  type        = string
+}
+
 variable "oidc_provider_arn" {
   description = "ARN of the OIDC provider for EKS"
   type        = string

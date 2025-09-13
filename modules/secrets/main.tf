@@ -38,34 +38,8 @@ resource "aws_iam_policy" "secrets_access" {
   tags = var.tags
 }
 
-# Security: Create IAM role for pod
-resource "aws_iam_role" "pod_role" {
-  name = var.pod_role_name
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = var.oidc_provider_arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "${replace(var.oidc_provider_url, "https://", "")}:sub" = "system:serviceaccount:default:hello-world-sa"
-            "${replace(var.oidc_provider_url, "https://", "")}:aud" = "sts.amazonaws.com"
-          }
-        }
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
-# Security: Attach policy to pod role
+# Security: Attach policy to pod role (role is created in IAM module)
 resource "aws_iam_role_policy_attachment" "secrets_access" {
-  role       = aws_iam_role.pod_role.name
+  role       = var.pod_role_name
   policy_arn = aws_iam_policy.secrets_access.arn
 }
