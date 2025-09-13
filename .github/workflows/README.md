@@ -4,7 +4,7 @@ This repository contains two main GitHub Actions workflows for managing the AWS 
 
 ## 🚀 Deploy Workflow (`deploy.yaml`)
 
-**Triggers:** Automatic on push to `main` or `develop` branches
+**Triggers:** Manual (workflow_dispatch) - On-demand only
 
 **What it does:**
 - Runs tests and linting
@@ -35,6 +35,16 @@ This repository contains two main GitHub Actions workflows for managing the AWS 
 - Provides comprehensive logging and verification
 - Includes force cleanup for stubborn resources
 - Uses the same state file from the deploy workflow to ensure accurate destruction
+
+**How to use:**
+1. Go to **Actions** tab in GitHub
+2. Select **"CI/CD Pipeline for Hello-World App"** workflow
+3. Click **"Run workflow"**
+4. Click **"Run workflow"** to confirm
+
+## 💥 Destroy Workflow (`destroy.yaml`)
+
+**Triggers:** Manual (workflow_dispatch) - On-demand only
 
 **How to use:**
 1. Go to **Actions** tab in GitHub
