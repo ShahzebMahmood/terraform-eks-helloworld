@@ -73,8 +73,8 @@ module "github_actions" {
   source                = "./modules/github-actions"
   project_name          = var.cluster_name
   github_repo           = var.github_repo
-  aws_access_key_id     = var.aws_access_key_id
-  aws_secret_access_key = var.aws_secret_access_key
+  aws_access_key_id     = "placeholder"
+  aws_secret_access_key = "placeholder"
   aws_region            = var.aws_region
   ecr_repo_uri          = module.ecr.hello_world_repo_uri
   cluster_name          = module.eks.cluster_name
