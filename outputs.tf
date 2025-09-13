@@ -42,3 +42,13 @@ output "billing_alarm_arn" {
   description = "Billing alarm ARN for cost monitoring"
   value       = module.billing.billing_alarm_arn
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions"
+  value       = module.github_actions.github_actions_role_arn
+}
+
+output "secrets_manager_secret_name" {
+  description = "Name of the Secrets Manager secret for GitHub Actions credentials"
+  value       = module.github_actions.secrets_manager_secret_name
+}
