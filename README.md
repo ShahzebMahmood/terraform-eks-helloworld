@@ -341,3 +341,8 @@ For issues and questions:
 ---
 
 **Happy Deploying! 🚀**
+
+## 🎯 **Latest Update**
+- Enhanced security with AWS Secrets Manager
+- GitHub Actions now uses OIDC authentication
+- All credentials stored securely in AWS
