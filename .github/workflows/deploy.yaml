@@ -154,6 +154,16 @@ jobs:
             terraform.tfstate.backup
           key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
+      - name: Verify cache save after init
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Cache save after init: SUCCESS"
+          else
+            echo "⚠️ Cache save after init: FAILED (but continuing)"
+            echo "💡 This is normal and won't affect the deployment"
+          fi
+
       - name: Terraform Validate
         run: terraform validate
 
@@ -207,14 +217,72 @@ jobs:
             terraform.tfstate.backup
           key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
 
+      - name: Verify cache save after plan
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Cache save after plan: SUCCESS"
+          else
+            echo "⚠️ Cache save after plan: FAILED (but continuing)"
+            echo "💡 This is normal and won't affect the deployment"
+          fi
+
       - name: Terraform Apply
         id: terraform-apply
         run: |
+          echo "🔧 Running terraform apply..."
+          
+          # Backup state file before apply
+          if [ -f "terraform.tfstate" ]; then
+            cp terraform.tfstate terraform.tfstate.backup.$(date +%s)
+            echo "✅ State file backed up"
+          fi
+          
+          # Run terraform apply
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
+          
+          # Verify state file was created/updated
+          if [ -f "terraform.tfstate" ]; then
+            echo "✅ State file exists after apply"
+            echo "📊 State file size: $(wc -c < terraform.tfstate) bytes"
+            echo "📋 Resources in state:"
+            terraform state list 2>/dev/null || echo "No resources in state yet"
+          else
+            echo "⚠️ State file not found after apply"
+          fi
+
+      - name: Save Terraform state explicitly
+        if: always()
+        run: |
+          echo "💾 Saving Terraform state file..."
+          
+          # Create state directory
+          mkdir -p terraform-state
+          
+          # Copy state files
+          if [ -f "terraform.tfstate" ]; then
+            cp terraform.tfstate terraform-state/terraform.tfstate
+            echo "✅ State file copied to terraform-state/"
+          fi
+          
+          if [ -f "terraform.tfstate.backup" ]; then
+            cp terraform.tfstate.backup terraform-state/terraform.tfstate.backup
+            echo "✅ State backup copied to terraform-state/"
+          fi
+          
+          # Copy .terraform directory
+          if [ -d ".terraform" ]; then
+            cp -r .terraform terraform-state/
+            echo "✅ .terraform directory copied to terraform-state/"
+          fi
+          
+          # List what we saved
+          echo "📁 Contents of terraform-state/:"
+          ls -la terraform-state/ || echo "No terraform-state directory found"
 
       - name: Cache Terraform state after apply
         if: always()
@@ -225,7 +293,18 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
+            terraform-state
           key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
+
+      - name: Verify cache save after apply
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Cache save after apply: SUCCESS"
+          else
+            echo "⚠️ Cache save after apply: FAILED (but continuing)"
+            echo "💡 This is normal and won't affect the deployment"
+          fi
 
   cleanup-on-failure:
     needs: [deploy-infrastructure]
@@ -261,11 +340,47 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
+            terraform-state
           key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
           restore-keys: |
             terraform-state-main-${{ github.run_number }}-
             terraform-state-main-
           fail-on-cache-miss: false
+
+      - name: Restore Terraform state from cache
+        if: always()
+        run: |
+          echo "🔄 Restoring Terraform state from cache..."
+          
+          # Check if we have cached state
+          if [ -d "terraform-state" ]; then
+            echo "✅ Found cached terraform-state directory"
+            
+            # Restore state files
+            if [ -f "terraform-state/terraform.tfstate" ]; then
+              cp terraform-state/terraform.tfstate terraform.tfstate
+              echo "✅ State file restored from cache"
+            fi
+            
+            if [ -f "terraform-state/terraform.tfstate.backup" ]; then
+              cp terraform-state/terraform.tfstate.backup terraform.tfstate.backup
+              echo "✅ State backup restored from cache"
+            fi
+            
+            if [ -d "terraform-state/.terraform" ]; then
+              cp -r terraform-state/.terraform .terraform
+              echo "✅ .terraform directory restored from cache"
+            fi
+            
+            # Verify state
+            if [ -f "terraform.tfstate" ]; then
+              echo "📊 State file size: $(wc -c < terraform.tfstate) bytes"
+              echo "📋 Resources in state:"
+              terraform state list 2>/dev/null || echo "No resources in state"
+            fi
+          else
+            echo "⚠️ No cached state found - starting fresh"
+          fi
 
       - name: Terraform Init
         run: terraform init
@@ -368,6 +483,16 @@ jobs:
             terraform.tfstate
             terraform.tfstate.backup
           key: terraform-state-main-${{ github.run_number }}-${{ github.run_attempt }}
+
+      - name: Verify cache save after cleanup
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Cache save after cleanup: SUCCESS"
+          else
+            echo "⚠️ Cache save after cleanup: FAILED (but continuing)"
+            echo "💡 This is normal and won't affect the deployment"
+          fi
 
   deploy-application:
     needs: [build-and-push, deploy-infrastructure, cleanup-on-failure]
