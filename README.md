@@ -1,388 +1,324 @@
-# Hello World DevOps Project
+# 🚀 Hello-World DevOps Project
 
-A comprehensive DevOps project demonstrating infrastructure provisioning, container orchestration, CI/CD, monitoring, and deployment best practices using AWS, Terraform, Kubernetes, and GitHub Actions.
+A complete DevOps solution that provisions AWS infrastructure and deploys a scalable web application with monitoring, CI/CD, and security best practices.
 
-## 🆓 **AWS Free Tier Optimized**
+## 📋 Project Overview
 
-This project is **fully optimized for AWS Free Tier** and can run for **$0/month** for 12 months! See [FREE_TIER_GUIDE.md](./FREE_TIER_GUIDE.md) for detailed cost optimization information.
+This project demonstrates a full DevOps workflow including:
+- **Infrastructure as Code** with Terraform
+- **Container Orchestration** with Amazon EKS
+- **CI/CD Pipeline** with GitHub Actions
+- **Monitoring & Alerting** with CloudWatch
+- **Security** with IAM, Secrets Manager, and Pod Security Standards
+- **Auto-scaling** with Horizontal Pod Autoscaler
 
 ## 🏗️ Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   GitHub Repo   │    │   GitHub Actions│    │   AWS ECR       │
-│                 │───▶│   CI/CD Pipeline│───▶│   Container     │
-│                 │    │                 │    │   Registry      │
+│   GitHub Repo   │───▶│  GitHub Actions │───▶│   AWS ECR       │
+│                 │    │   CI/CD Pipeline│    │   Container     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                                 │
                                 ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   AWS EKS       │    │   AWS VPC       │    │   CloudWatch    │
-│   Kubernetes    │◀───│   Networking    │───▶│   Monitoring    │
-│   Cluster       │    │                 │    │   & Alerts      │
+│   AWS EKS       │◀───│   Terraform     │───▶│   AWS VPC       │
+│   Kubernetes    │    │   Infrastructure│    │   Networking    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   CloudWatch    │    │   SNS Alerts    │    │   Load Balancer │
+│   Monitoring    │    │   Notifications │    │   (ALB)         │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 📚 Development Journey
+## 🎯 Features
 
-This project was built over 3 days as a learning exercise in DevOps practices. See [DEVELOPMENT_JOURNAL.md](./DEVELOPMENT_JOURNAL.md) for a detailed account of the development process, challenges faced, and lessons learned.
+### ✅ Infrastructure Provisioning
+- **VPC** with public subnets across 2 AZs
+- **EKS Cluster** with managed node groups
+- **Application Load Balancer** for external access
+- **Auto-scaling** with HPA (Horizontal Pod Autoscaler)
 
-## 🚀 Features
+### ✅ Application Deployment
+- **Node.js Hello-World** application
+- **Docker containerization**
+- **Kubernetes deployment** with 2 replicas
+- **Health checks** and readiness probes
 
-### Infrastructure
-- ✅ **VPC with Public Subnets** - Secure networking with internet gateway
-- ✅ **EKS Cluster** - Managed Kubernetes with auto-scaling node groups
-- ✅ **ECR Repository** - Container image registry
-- ✅ **Load Balancer** - Application Load Balancer with HTTPS support
-- ✅ **Auto-scaling** - Horizontal Pod Autoscaler (HPA)
+### ✅ CI/CD Pipeline
+- **GitHub Actions** workflow
+- **Docker image building** and pushing to ECR
+- **Automatic deployment** to EKS
+- **Security scanning** with Trivy
 
-### Application
-- ✅ **Node.js Hello World App** - Simple web application
-- ✅ **Docker Containerization** - Multi-stage, security-hardened
-- ✅ **Health Checks** - Liveness and readiness probes
-- ✅ **Metrics Endpoint** - Application metrics for monitoring
+### ✅ Monitoring & Logging
+- **CloudWatch dashboards** for cluster metrics
+- **CPU and memory monitoring**
+- **Request rate tracking**
+- **Email alerts** via SNS
 
-### CI/CD Pipeline
-- ✅ **GitHub Actions** - Automated testing, building, and deployment
-- ✅ **Multi-stage Pipeline** - Test → Build → Deploy → Verify
-- ✅ **Infrastructure as Code** - Terraform for resource provisioning
-- ✅ **Container Registry** - Automated image building and pushing
+### ✅ Security
+- **IAM roles** with least privilege
+- **Secrets Manager** for sensitive data
+- **Pod Security Standards** (restricted)
+- **Network policies** for micro-segmentation
+- **Encrypted state** in S3 backend
 
-### Monitoring & Observability
-- ✅ **CloudWatch Dashboard** - Real-time metrics visualization
-- ✅ **SNS Alerts** - Email notifications for critical events
-- ✅ **Application Metrics** - CPU, memory, and request metrics
-- ✅ **Health Monitoring** - Automated health checks
+## 🚀 Quick Start (5 Minutes)
 
-### Security
-- ✅ **IAM Roles** - Least privilege access
-- ✅ **Non-root Container** - Security-hardened Docker image
-- ✅ **HTTPS Support** - SSL/TLS termination
-- ✅ **Resource Limits** - CPU and memory constraints
+### Prerequisites
+- AWS Account (Free Tier eligible)
+- GitHub Account
+- AWS CLI installed and configured
+- kubectl installed
 
-## 📋 Prerequisites
-
-- AWS Account with appropriate permissions
-- Terraform >= 1.6.0
-- kubectl >= 1.28
-- Docker >= 20.10
-- Node.js >= 18 (for local development)
-
-## 🛠️ Quick Start
-
-### 1. Clone the Repository
-
+### Step 1: Clone the Repository
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/your-username/TF_AWS_Test-1.git
 cd TF_AWS_Test-1
 ```
 
-### 2. Configure AWS Credentials
-
+### Step 2: Configure AWS Credentials
 ```bash
 aws configure
-# Enter your AWS Access Key ID, Secret Access Key, and region
+# Enter your AWS Access Key ID
+# Enter your AWS Secret Access Key
+# Enter your region (e.g., us-east-1)
+# Enter output format (json)
 ```
 
-### 3. Deploy Infrastructure
+### Step 3: Set Up GitHub Secrets
+Go to your GitHub repository → Settings → Secrets and variables → Actions
 
+Add these secrets:
+- `AWS_ACCESS_KEY_ID`: Your AWS access key
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
+
+### Step 4: Deploy Infrastructure
 ```bash
-# Initialize Terraform
-terraform init
+# Make scripts executable
+chmod +x scripts/*.sh
 
-# Review the plan
-terraform plan
+# Set up Terraform backend
+./scripts/setup-terraform-backend.sh
 
 # Deploy infrastructure
+terraform init
+terraform plan
 terraform apply
 ```
 
-### 4. Configure GitHub Secrets
-
-Add the following secrets to your GitHub repository:
-
-- `AWS_ACCESS_KEY_ID` - Your AWS access key
-- `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
-- `ECR_REPO` - ECR repository URI (from terraform output)
-- `CLUSTER_NAME` - EKS cluster name (from terraform output)
-
-### 5. Deploy Application
-
+### Step 5: Deploy Application
 ```bash
-# Get kubeconfig
-aws eks update-kubeconfig --name <cluster-name> --region us-east-1
+# Update kubeconfig
+aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 
 # Deploy application
 kubectl apply -f k8s/
 ```
 
-## 📊 Monitoring & Alerts
+### Step 6: Access Your Application
+```bash
+# Get the load balancer URL
+kubectl get ingress hello-world-ingress -n hello-world
 
-### CloudWatch Dashboard
-Access your monitoring dashboard at:
-```
-https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards
+# Or use port-forward for testing
+kubectl port-forward service/hello-world-service 8080:80 -n hello-world
 ```
 
-### Application Endpoints
-- **Main App**: `http://your-load-balancer-url/`
-- **Health Check**: `http://your-load-balancer-url/health`
-- **Readiness**: `http://your-load-balancer-url/ready`
-- **Metrics**: `http://your-load-balancer-url/metrics`
+Visit: `http://localhost:8080` or the load balancer URL
+
+## 📊 Monitoring & Alerting
+
+### CloudWatch Dashboards
+- **URL**: [AWS CloudWatch Console](https://console.aws.amazon.com/cloudwatch/)
+- **Dashboard**: `thrive-cluster-test-dashboard`
+- **Metrics**: CPU, Memory, Request Rate, Pod Count
 
 ### Alerts
-- High CPU utilization (>80%)
-- EKS cluster errors
-- Application health check failures
+- **High CPU Usage**: > 70% for 5 minutes
+- **High Memory Usage**: > 80% for 5 minutes
+- **Cluster Errors**: Any pod failures
+- **Billing Alerts**: > $10/month
+
+### Email Notifications
+Configure your email in the SNS topic:
+```bash
+aws sns subscribe \
+  --topic-arn arn:aws:sns:us-east-1:YOUR-ACCOUNT:thrive-cluster-test-alerts \
+  --protocol email \
+  --notification-endpoint your-email@example.com
+```
 
 ## 🔧 Configuration
 
 ### Environment Variables
-- `NODE_ENV` - Application environment (production/development)
-- `PORT` - Application port (default: 3000)
-
-### Resource Limits
-- **CPU**: 50m request, 100m limit
-- **Memory**: 64Mi request, 128Mi limit
-- **Replicas**: 2-10 (auto-scaling)
-
-## 🏃‍♂️ Local Development
-
-### Run the Application Locally
-
 ```bash
+# In terraform.tfvars
+cluster_name = "thrive-cluster-test"
+aws_region   = "us-east-1"
+vpc_cidr     = "10.0.0.0/16"
+```
+
+### Application Configuration
+```bash
+# In k8s/deployment.yaml
+replicas: 2
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "100m"
+```
+
+## 🛠️ Development
+
+### Local Development
+```bash
+# Run the app locally
 cd app
 npm install
 npm start
+
+# Build Docker image
+docker build -t hello-world .
+docker run -p 3000:3000 hello-world
 ```
 
-### Build Docker Image Locally
-
+### Testing
 ```bash
+# Run tests
 cd app
-docker build -t hello-world:local .
-docker run -p 3000:3000 hello-world:local
+npm test
+
+# Security scan
+trivy image hello-world:latest
 ```
 
-### Test Health Endpoints
+## 🧹 Cleanup
 
+### Destroy Infrastructure
 ```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/ready
-curl http://localhost:3000/metrics
+# Destroy everything
+terraform destroy
+
+# Or use the cleanup script
+./scripts/cleanup-aws-resources.sh
+```
+
+### Verify Cleanup
+```bash
+./scripts/verify-aws-cleanup.sh
 ```
 
 ## 📁 Project Structure
 
 ```
-├── app/                    # Node.js application
-│   ├── index.js           # Main application file
-│   ├── package.json       # Dependencies
-│   ├── dockerfile         # Container definition
-│   └── healthcheck.js     # Health check script
-├── k8s/                   # Kubernetes manifests
-│   ├── deployment.yaml    # Application deployment
-│   ├── service.yaml       # Service definition
-│   ├── hpa.yaml          # Horizontal Pod Autoscaler
-│   └── ingress.yaml      # Ingress with HTTPS
-├── modules/               # Terraform modules
-│   ├── vpc/              # VPC and networking
-│   ├── eks/              # EKS cluster
-│   ├── iam/              # IAM roles and policies
-│   ├── ecr/              # Container registry
-│   └── monitoring/       # CloudWatch monitoring
-├── .github/workflows/     # CI/CD pipeline
-│   ├── deploy.yaml       # GitHub Actions deploy workflow
-│   └── destroy.yaml      # GitHub Actions destroy workflow
-├── scripts/              # Utility scripts
-│   ├── cleanup-aws-resources.sh # Manual cleanup script
-│   └── verify-aws-cleanup.sh # AWS cleanup verification script
-├── main.tf               # Main Terraform configuration
-├── variables.tf          # Terraform variables
-├── outputs.tf            # Terraform outputs
-├── README.md             # This file
-├── ARCHITECTURE.md       # System architecture
-├── DEPLOYMENT_GUIDE.md   # Step-by-step deployment
-├── AWS_CLEANUP_CHECK.md  # AWS cleanup verification guide
-├── FREE_TIER_GUIDE.md    # Free tier optimization
-├── DEVELOPMENT_JOURNAL.md # 3-day development process
-├── LEARNING_NOTES.md     # Key learnings and mistakes
-├── SECURITY.md           # Security best practices
-├── DEVOPS_BEST_PRACTICES.md # DevOps best practices
-└── create_git_history.sh # Script to create realistic git history
+├── app/                          # Node.js application
+│   ├── Dockerfile               # Container definition
+│   ├── package.json             # Dependencies
+│   └── index.js                 # Main application
+├── k8s/                         # Kubernetes manifests
+│   ├── deployment.yaml          # App deployment
+│   ├── service.yaml             # Load balancer service
+│   ├── ingress.yaml             # External access
+│   ├── hpa.yaml                 # Auto-scaling
+│   └── network-policy.yaml      # Security policies
+├── modules/                     # Terraform modules
+│   ├── vpc/                     # VPC configuration
+│   ├── eks/                     # EKS cluster
+│   ├── ecr/                     # Container registry
+│   ├── monitoring/              # CloudWatch setup
+│   └── secrets/                 # Secrets management
+├── scripts/                     # Utility scripts
+│   ├── setup-terraform-backend.sh
+│   ├── cleanup-aws-resources.sh
+│   └── verify-aws-cleanup.sh
+├── .github/workflows/           # CI/CD pipeline
+│   └── deploy.yaml              # GitHub Actions
+├── main.tf                      # Main Terraform config
+├── backend.tf                   # S3 backend config
+└── README.md                    # This file
 ```
 
-## 🔄 CI/CD Pipeline
+## 🔒 Security Features
 
-The GitHub Actions pipeline is **manually triggered only** for full control:
+- **IAM Roles**: Least privilege access
+- **Secrets Manager**: Encrypted secrets storage
+- **Pod Security Standards**: Restricted security context
+- **Network Policies**: Micro-segmentation
+- **Encrypted State**: S3 backend with encryption
+- **Vulnerability Scanning**: Trivy in CI/CD pipeline
 
-### 🚀 **Deploy Pipeline** (Manual trigger)
-1. **Test Stage**
-   - Code checkout and dependency installation
-   - Linting and testing with fallbacks
+## 💰 Cost Optimization
 
-2. **Infrastructure Stage**
-   - Terraform validation and planning
-   - Infrastructure provisioning (37 AWS resources)
-
-3. **Build Stage**
-   - Docker image building and ECR push
-   - Security scanning with Trivy
-
-4. **Deploy Stage**
-   - Kubernetes deployment to EKS
-   - Rollout status monitoring
-
-5. **Notification Stage**
-   - Simple deployment status reporting
-
-### 💥 **Destroy Pipeline** (Manual trigger)
-   - Comprehensive resource cleanup
-   - Kubernetes resource deletion
-   - ECR image cleanup
-   - CloudWatch and SNS cleanup
-   - Full verification of destruction
-
-**How to run:**
-1. Go to **Actions** tab in GitHub
-2. Select the workflow you want to run
-3. Click **"Run workflow"**
-4. Click **"Run workflow"** to confirm
-
-**How to verify cleanup:**
-1. Run the verification script: `./scripts/verify-aws-cleanup.sh`
-2. Or check manually using the commands in [AWS_CLEANUP_CHECK.md](./AWS_CLEANUP_CHECK.md)
-
-**If deployment fails due to existing resources:**
-1. The workflow will automatically run `terraform destroy` to clean up
-2. Or run the cleanup script manually: `./scripts/cleanup-existing-resources.sh`
-3. Then retry the deployment workflow
-
-**Resource Creation Order:**
-The infrastructure is designed to create resources in the correct dependency order:
-1. **VPC & Networking** - Creates the network foundation
-2. **Basic IAM Roles** - Creates EKS cluster and node roles (no OIDC dependencies)
-3. **ECR Repository** - Creates container registry
-4. **EKS Cluster** - Creates the Kubernetes cluster with OIDC provider
-5. **OIDC IAM Roles** - Creates pod roles that depend on EKS OIDC provider
-6. **Secrets & Monitoring** - Creates application secrets and monitoring
-7. **GitHub Actions** - Creates CI/CD integration resources
-8. **Billing Alerts** - Creates cost monitoring
+- **Free Tier**: Uses t3.micro instances
+- **Auto-scaling**: Scales down when not needed
+- **Spot Instances**: Can be configured for cost savings
+- **Resource Limits**: Prevents over-provisioning
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
 
-1. **Terraform Apply Fails**
+1. **EKS Cluster Not Ready**
    ```bash
-   # Check AWS credentials
-   aws sts get-caller-identity
-   
-   # Verify region and permissions
-   terraform plan
+   aws eks describe-cluster --name thrive-cluster-test
+   kubectl get nodes
    ```
 
-2. **Kubernetes Deployment Fails**
+2. **Pods Not Starting**
    ```bash
-   # Check pod status
-   kubectl get pods
-   
-   # View pod logs
-   kubectl logs -l app=hello-world
-   
-   # Check service status
-   kubectl get services
+   kubectl get pods -n hello-world
+   kubectl describe pod <pod-name> -n hello-world
    ```
 
-3. **CI/CD Pipeline Fails**
-   - Verify GitHub secrets are set correctly
-   - Check AWS permissions for GitHub Actions
-   - Review pipeline logs in GitHub Actions tab
+3. **Load Balancer Not Working**
+   ```bash
+   kubectl get ingress -n hello-world
+   kubectl get services -n hello-world
+   ```
 
-### Useful Commands
-
+### Logs
 ```bash
-# Get cluster info
-kubectl cluster-info
+# Application logs
+kubectl logs -f deployment/hello-world -n hello-world
 
-# View all resources
-kubectl get all
-
-# Check HPA status
-kubectl get hpa
-
-# View ingress
-kubectl get ingress
-
-# Check CloudWatch logs
-aws logs describe-log-groups
+# Cluster logs
+aws logs describe-log-groups --log-group-name-prefix /aws/eks/thrive-cluster-test
 ```
 
-## 💰 Cost Optimization
+## 📚 Learning Resources
 
-### **AWS Free Tier Eligible Resources**
-- ✅ **EKS cluster** (first 1 million requests free)
-- ✅ **EC2 t3.micro instances** (750 hours/month free)
-- ✅ **ECR** (500MB storage free)
-- ✅ **CloudWatch** (10 custom metrics free)
-- ✅ **VPC & Networking** (free within region)
-- ✅ **EBS Storage** (30GB free)
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest)
+- [Amazon EKS Documentation](https://docs.aws.amazon.com/eks/)
+- [Kubernetes Documentation](https://kubernetes.io/docs/)
+- [GitHub Actions](https://docs.github.com/en/actions)
 
-### **Automatic Cost Monitoring**
-- 🚨 **Billing alerts** at $3 and $5 thresholds
-- 📊 **AWS Budgets** integration
-- 📧 **Email notifications** for cost overruns
-- 📈 **CloudWatch billing alarms**
+## 🤝 Contributing
 
-### **Estimated Monthly Cost: ~$16-20** 
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
-**Note**: This project uses a production-ready Application Load Balancer (~$16/month) to demonstrate enterprise-grade architecture. While this exceeds free tier limits, it shows:
-- Production-ready thinking and AWS expertise
-- Understanding of real-world scalability requirements  
-- Professional DevOps practices and architecture decisions
+## 📄 License
 
-See [FREE_TIER_GUIDE.md](./FREE_TIER_GUIDE.md) for complete cost breakdown and free tier optimization strategies.
-
-## 🔒 Security & DevOps Best Practices
-
-### **Security Features**
-- ✅ **Container Security**: Non-root user, vulnerability scanning, read-only filesystem
-- ✅ **Kubernetes Security**: Network policies, pod security contexts, RBAC
-- ✅ **AWS Security**: IAM least privilege, VPC isolation, encryption at rest/transit
-- ✅ **Application Security**: Security headers, input validation, secrets management
-- ✅ **CI/CD Security**: Automated vulnerability scanning, secret detection
-
-### **DevOps Best Practices**
-- ✅ **Infrastructure as Code**: Modular Terraform with version control
-- ✅ **CI/CD Pipeline**: Multi-stage pipeline with quality gates
-- ✅ **Containerization**: Multi-stage builds, health checks, image optimization
-- ✅ **Monitoring**: Comprehensive observability with CloudWatch
-- ✅ **Auto-scaling**: HPA and cluster autoscaling for performance
-
-See [SECURITY.md](./SECURITY.md) and [DEVOPS_BEST_PRACTICES.md](./DEVOPS_BEST_PRACTICES.md) for detailed information.
-
-## 📈 Scaling
-
-The application automatically scales based on:
-- CPU utilization (target: 70%)
-- Memory utilization (target: 80%)
-- Minimum replicas: 2
-- Maximum replicas: 10
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ## 🆘 Support
 
-For issues and questions:
+If you encounter any issues:
 1. Check the troubleshooting section
-2. Review GitHub Issues
-3. Create a new issue with detailed information
+2. Review the GitHub Actions logs
+3. Check CloudWatch logs
+4. Open an issue on GitHub
 
 ---
 
 **Happy Deploying! 🚀**
-
-## 🎯 **Latest Update**
-- Enhanced security with AWS Secrets Manager
-- GitHub Actions now uses OIDC authentication
-- All credentials stored securely in AWS
-- Fixed repository name in IAM trust relationship
-- Fixed IAM module directory naming issue
