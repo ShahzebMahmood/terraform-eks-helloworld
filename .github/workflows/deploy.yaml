@@ -100,14 +100,12 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get secrets from Secrets Manager
-        id: get-secrets
-        run: |
-          SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_MANAGER_SECRET_NAME }} --query SecretString --output text)
-          echo "GITHUB_REPO=$(echo $SECRETS | jq -r '.GITHUB_REPO')" >> $GITHUB_ENV
+      - name: Set GitHub repo environment variable
+        run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -127,16 +125,16 @@ jobs:
         run: |
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
-            -var="aws_access_key_id=placeholder" \
-            -var="aws_secret_access_key=placeholder" \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -out=tfplan
 
       - name: Terraform Apply
         run: |
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
-            -var="aws_access_key_id=placeholder" \
-            -var="aws_secret_access_key=placeholder" \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
 
   deploy-application:
