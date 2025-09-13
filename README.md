@@ -258,6 +258,17 @@ The GitHub Actions pipeline is **manually triggered only** for full control:
 2. Or run the cleanup script manually: `./scripts/cleanup-existing-resources.sh`
 3. Then retry the deployment workflow
 
+**Resource Creation Order:**
+The infrastructure is designed to create resources in the correct dependency order:
+1. **VPC & Networking** - Creates the network foundation
+2. **Basic IAM Roles** - Creates EKS cluster and node roles (no OIDC dependencies)
+3. **ECR Repository** - Creates container registry
+4. **EKS Cluster** - Creates the Kubernetes cluster with OIDC provider
+5. **OIDC IAM Roles** - Creates pod roles that depend on EKS OIDC provider
+6. **Secrets & Monitoring** - Creates application secrets and monitoring
+7. **GitHub Actions** - Creates CI/CD integration resources
+8. **Billing Alerts** - Creates cost monitoring
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
