@@ -43,6 +43,17 @@ jobs:
         with:
           terraform_version: 1.6.0
 
+      - name: Cache Terraform state
+        uses: actions/cache@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-${{ github.sha }}
+          restore-keys: |
+            terraform-state-
+
       - name: Terraform Init
         run: terraform init
 
