@@ -124,6 +124,68 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Import existing resources (if needed)
+        run: |
+          # Import ECR repository if it exists
+          if aws ecr describe-repositories --repository-names hello-world --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            terraform import module.ecr.aws_ecr_repository.hello_world hello-world || echo "ECR repository already imported or doesn't exist"
+          fi
+          
+          # Import EKS cluster if it exists
+          if aws eks describe-cluster --name thrive-cluster-test --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            terraform import module.eks.aws_eks_cluster.this thrive-cluster-test || echo "EKS cluster already imported or doesn't exist"
+          fi
+          
+          # Import EKS node group if it exists
+          if aws eks describe-nodegroup --cluster-name thrive-cluster-test --nodegroup-name thrive-cluster-test-nodegroup --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            terraform import module.eks.aws_eks_node_group.this thrive-cluster-test:thrive-cluster-test-nodegroup || echo "EKS node group already imported or doesn't exist"
+          fi
+          
+          # Import IAM roles if they exist
+          if aws iam get-role --role-name thrive-cluster-test-cluster-role > /dev/null 2>&1; then
+            terraform import module.iam.aws_iam_role.eks_cluster_role thrive-cluster-test-cluster-role || echo "EKS cluster role already imported or doesn't exist"
+          fi
+          
+          if aws iam get-role --role-name thrive-cluster-test-node-role > /dev/null 2>&1; then
+            terraform import module.iam.aws_iam_role.eks_node_role thrive-cluster-test-node-role || echo "EKS node role already imported or doesn't exist"
+          fi
+          
+          if aws iam get-role --role-name hello-world-pod-role > /dev/null 2>&1; then
+            terraform import module.iam.aws_iam_role.hello_world_pod hello-world-pod-role || echo "Pod role already imported or doesn't exist"
+          fi
+          
+          # Import GitHub Actions role if it exists
+          if aws iam get-role --role-name thrive-cluster-test-github-actions-role > /dev/null 2>&1; then
+            terraform import module.github_actions.aws_iam_role.github_actions thrive-cluster-test-github-actions-role || echo "GitHub Actions role already imported or doesn't exist"
+          fi
+          
+          # Import OIDC providers if they exist
+          if aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `token.actions.githubusercontent.com`)]' --output text | grep -q "arn:"; then
+            GITHUB_OIDC_ARN=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `token.actions.githubusercontent.com`)].Arn' --output text)
+            terraform import module.github_actions.aws_iam_openid_connect_provider.github "$GITHUB_OIDC_ARN" || echo "GitHub OIDC provider already imported or doesn't exist"
+          fi
+          
+          if aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `oidc.eks.us-east-1.amazonaws.com`)]' --output text | grep -q "arn:"; then
+            EKS_OIDC_ARN=$(aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `oidc.eks.us-east-1.amazonaws.com`)].Arn' --output text)
+            terraform import module.eks.aws_iam_openid_connect_provider.eks "$EKS_OIDC_ARN" || echo "EKS OIDC provider already imported or doesn't exist"
+            terraform import module.iam.aws_iam_openid_connect_provider.eks "$EKS_OIDC_ARN" || echo "EKS OIDC provider already imported or doesn't exist"
+          fi
+          
+          # Import Secrets Manager secrets if they exist
+          if aws secretsmanager describe-secret --secret-id thrive-cluster-test-github-actions-credentials --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            terraform import module.github_actions.aws_secretsmanager_secret.github_credentials thrive-cluster-test-github-actions-credentials || echo "GitHub credentials secret already imported or doesn't exist"
+          fi
+          
+          if aws secretsmanager describe-secret --secret-id thrive-cluster-test-app-secrets --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            terraform import module.secrets.aws_secretsmanager_secret.app_secrets thrive-cluster-test-app-secrets || echo "App secrets already imported or doesn't exist"
+          fi
+          
+          # Import CloudWatch log group if it exists
+          if aws logs describe-log-groups --log-group-name-prefix "/aws/eks/thrive-cluster-test" --region ${{ env.AWS_REGION }} --query 'logGroups[0].logGroupName' --output text | grep -q "/aws/eks/thrive-cluster-test"; then
+            LOG_GROUP_NAME=$(aws logs describe-log-groups --log-group-name-prefix "/aws/eks/thrive-cluster-test" --region ${{ env.AWS_REGION }} --query 'logGroups[0].logGroupName' --output text)
+            terraform import module.monitoring.aws_cloudwatch_log_group.eks_cluster "$LOG_GROUP_NAME" || echo "CloudWatch log group already imported or doesn't exist"
+          fi
+
       - name: Terraform Plan
         run: |
           terraform plan \
