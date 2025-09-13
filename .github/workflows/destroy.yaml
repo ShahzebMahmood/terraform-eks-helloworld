@@ -93,16 +93,79 @@ jobs:
             echo "ℹ️ No resources found in Terraform state"
           fi
 
+      - name: Check and handle Terraform state lock
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🔍 Checking for existing Terraform state locks..."
+          
+          # Try to run terraform plan to check for locks
+          if ! terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -q "Error acquiring the state lock"; then
+            echo "✅ No state lock detected"
+          else
+            echo "⚠️ State lock detected, attempting to force unlock..."
+            
+            # Extract lock ID from the error message
+            LOCK_ID=$(terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' || echo "")
+            
+            if [ -n "$LOCK_ID" ]; then
+              echo "🔓 Force unlocking state with ID: $LOCK_ID"
+              terraform force-unlock -force "$LOCK_ID" || echo "⚠️ Could not unlock state, will try destroy anyway"
+            else
+              echo "⚠️ Could not extract lock ID, will try destroy anyway"
+            fi
+          fi
+
       - name: Terraform Destroy
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
           echo "💥 Destroying infrastructure with Terraform..."
-          terraform destroy \
+          
+          # Try terraform destroy with lock handling
+          if terraform destroy \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -auto-approve
-          echo "✅ Infrastructure destroyed successfully!"
+            -auto-approve; then
+            echo "✅ Infrastructure destroyed successfully!"
+          else
+            echo "⚠️ Terraform destroy failed, checking for state lock issues..."
+            
+            # Check if it's a lock issue and try to force unlock
+            if terraform destroy \
+              -var="github_repo=$GITHUB_REPO" \
+              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -auto-approve 2>&1 | grep -q "Error acquiring the state lock"; then
+              
+              echo "🔓 State lock detected, attempting force unlock and retry..."
+              
+              # Extract lock ID and force unlock
+              LOCK_ID=$(terraform destroy \
+                -var="github_repo=$GITHUB_REPO" \
+                -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+                -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+                -auto-approve 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' || echo "")
+              
+              if [ -n "$LOCK_ID" ]; then
+                echo "🔓 Force unlocking state with ID: $LOCK_ID"
+                terraform force-unlock -force "$LOCK_ID"
+                
+                echo "🔄 Retrying terraform destroy after unlock..."
+                terraform destroy \
+                  -var="github_repo=$GITHUB_REPO" \
+                  -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+                  -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+                  -auto-approve
+                echo "✅ Infrastructure destroyed successfully after unlock!"
+              else
+                echo "❌ Could not extract lock ID, destroy failed"
+                exit 1
+              fi
+            else
+              echo "❌ Terraform destroy failed for reasons other than state lock"
+              exit 1
+            fi
+          fi
 
       - name: Clean up remaining Kubernetes resources
         if: steps.check-resources.outputs.resources_exist == 'true'
