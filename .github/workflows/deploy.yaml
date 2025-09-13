@@ -1,14 +1,12 @@
 name: CI/CD Pipeline for Hello-World App
 
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1
-  SECRETS_MANAGER_SECRET_NAME: thrive-cluster-test-github-actions-credentials
+  CLUSTER_NAME: thrive-cluster-test
+  ECR_REPOSITORY: hello-world
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -31,16 +29,15 @@ jobs:
 
       - name: Run tests
         working-directory: ./app
-        run: 'npm test || echo "No tests configured yet - TODO: add proper tests"'
+        run: 'npm test || echo "No tests configured yet"'
 
       - name: Lint code
         working-directory: ./app
-        run: 'npm run lint || echo "No linting configured yet - TODO: add ESLint"'
+        run: 'npm run lint || echo "No linting configured yet"'
 
   build-and-push:
     needs: [test, deploy-infrastructure]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     environment: AWS_ACCESS_KEY_ID
     permissions:
       id-token: write
@@ -59,9 +56,9 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         run: |
-          ECR_REPO=$(aws ecr describe-repositories --repository-names hello-world --query 'repositories[0].repositoryUri' --output text)
+          ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
           echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
-          echo "CLUSTER_NAME=thrive-cluster-test" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
 
       - name: Login to ECR
         id: login-ecr
@@ -91,7 +88,6 @@ jobs:
   deploy-infrastructure:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     environment: AWS_ACCESS_KEY_ID
     permissions:
       id-token: write
@@ -154,7 +150,6 @@ jobs:
   deploy-application:
     needs: [build-and-push, deploy-infrastructure]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     environment: AWS_ACCESS_KEY_ID
     permissions:
       id-token: write
@@ -173,9 +168,9 @@ jobs:
       - name: Get ECR repository URI
         id: get-ecr
         run: |
-          ECR_REPO=$(aws ecr describe-repositories --repository-names hello-world --query 'repositories[0].repositoryUri' --output text)
+          ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
           echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
-          echo "CLUSTER_NAME=thrive-cluster-test" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
 
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}

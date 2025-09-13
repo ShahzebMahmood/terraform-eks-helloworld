@@ -212,31 +212,40 @@ curl http://localhost:3000/metrics
 
 ## 🔄 CI/CD Pipeline
 
-The GitHub Actions pipeline includes:
+The GitHub Actions pipeline is **manually triggered only** for full control:
 
+### 🚀 **Deploy Pipeline** (Manual trigger)
 1. **Test Stage**
-   - Code checkout
-   - Dependency installation
-   - Linting and testing
+   - Code checkout and dependency installation
+   - Linting and testing with fallbacks
 
-2. **Build Stage**
-   - Docker image building
-   - ECR authentication
-   - Image tagging and pushing
-
-3. **Infrastructure Stage**
-   - Terraform validation
+2. **Infrastructure Stage**
+   - Terraform validation and planning
    - Infrastructure provisioning (37 AWS resources)
-   - Application deployment to EKS
 
-4. **Destroy Stage** (Manual trigger)
+3. **Build Stage**
+   - Docker image building and ECR push
+   - Security scanning with Trivy
+
+4. **Deploy Stage**
+   - Kubernetes deployment to EKS
+   - Rollout status monitoring
+
+5. **Notification Stage**
+   - Simple deployment status reporting
+
+### 💥 **Destroy Pipeline** (Manual trigger)
    - Comprehensive resource cleanup
    - Kubernetes resource deletion
    - ECR image cleanup
    - CloudWatch and SNS cleanup
    - Full verification of destruction
-   - Health check verification
-   - Rollout status monitoring
+
+**How to run:**
+1. Go to **Actions** tab in GitHub
+2. Select the workflow you want to run
+3. Click **"Run workflow"**
+4. Click **"Run workflow"** to confirm
 
 ## 🚨 Troubleshooting
 
