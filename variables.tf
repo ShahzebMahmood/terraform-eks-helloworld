@@ -52,9 +52,9 @@ variable "max_size" {
 }
 
 variable "instance_type" {
-  description = "EC2 instance type for worker nodes"
+  description = "EC2 instance type for worker nodes. t3.small supports up to 11 pods (vs t3.micro's 4 pods)"
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 variable "environment" {

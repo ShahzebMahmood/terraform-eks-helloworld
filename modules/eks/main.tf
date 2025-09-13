@@ -48,6 +48,16 @@ resource "aws_eks_node_group" "this" {
 
   instance_types = [var.instance_type]
 
+  # Update configuration to ensure proper pod scheduling
+  update_config {
+    max_unavailable_percentage = 25
+  }
+
+  # Ensure nodes are properly labeled for pod scheduling
+  labels = {
+    "node-type" = "general"
+  }
+
   tags = var.tags
 
   depends_on = [
