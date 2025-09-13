@@ -105,10 +105,11 @@ jobs:
             echo "⚠️ State lock detected, attempting to force unlock..."
             
             # Extract lock ID from the error message
-            LOCK_ID=$(terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' || echo "")
+            LOCK_ID=$(terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' | xargs || echo "")
             
             if [ -n "$LOCK_ID" ]; then
-              echo "🔓 Force unlocking state with ID: $LOCK_ID"
+              echo "🔓 Force unlocking state with ID: '$LOCK_ID'"
+              echo "🔍 Lock ID length: ${#LOCK_ID}"
               terraform force-unlock -force "$LOCK_ID" || echo "⚠️ Could not unlock state, will try destroy anyway"
             else
               echo "⚠️ Could not extract lock ID, will try destroy anyway"
@@ -144,10 +145,11 @@ jobs:
                 -var="github_repo=$GITHUB_REPO" \
                 -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
                 -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-                -auto-approve 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' || echo "")
+                -auto-approve 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' | xargs || echo "")
               
               if [ -n "$LOCK_ID" ]; then
-                echo "🔓 Force unlocking state with ID: $LOCK_ID"
+                echo "🔓 Force unlocking state with ID: '$LOCK_ID'"
+                echo "🔍 Lock ID length: ${#LOCK_ID}"
                 terraform force-unlock -force "$LOCK_ID"
                 
                 echo "🔄 Retrying terraform destroy after unlock..."
