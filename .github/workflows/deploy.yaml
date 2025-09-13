@@ -128,6 +128,16 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Cache Terraform state after init
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-main
+
       - name: Terraform Validate
         run: terraform validate
 
@@ -170,6 +180,16 @@ jobs:
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -out=tfplan
 
+      - name: Cache Terraform state after plan
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-main
+
       - name: Terraform Apply
         id: terraform-apply
         run: |
@@ -178,6 +198,16 @@ jobs:
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
+
+      - name: Cache Terraform state after apply
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-main
 
   cleanup-on-failure:
     needs: [deploy-infrastructure]
@@ -216,6 +246,7 @@ jobs:
           key: terraform-state-main
           restore-keys: |
             terraform-state-
+          fail-on-cache-miss: false
 
       - name: Terraform Init
         run: terraform init
@@ -234,7 +265,8 @@ jobs:
               -auto-approve
             echo "✅ Terraform destroy completed"
           else
-            echo "ℹ️ No resources found in Terraform state"
+            echo "ℹ️ No resources found in Terraform state - this means the deployment failed before any resources were created"
+            echo "ℹ️ Proceeding with manual cleanup of any resources that might exist..."
           fi
 
       - name: Clean up any remaining resources not in state
@@ -306,6 +338,16 @@ jobs:
           fi
           
           echo "✅ Cleanup completed. You can now retry the deployment."
+
+      - name: Cache Terraform state after cleanup
+        if: always()
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-main
 
   deploy-application:
     needs: [build-and-push, deploy-infrastructure, cleanup-on-failure]
