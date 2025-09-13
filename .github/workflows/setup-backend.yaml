@@ -102,7 +102,7 @@ jobs:
             aws dynamodb wait table-exists --table-name $TABLE_NAME --region ${{ env.AWS_REGION }}
             
             # Add tags to the table
-            aws dynamodb tag-resource --resource-arn "arn:aws:dynamodb:${{ env.AWS_REGION }}:$(aws sts get-caller-identity --query Account --output text):table/$TABLE_NAME" --tags 'Key=Name,Value=Terraform State Locks,Key=Environment,Value=dev,Key=Project,Value=Thrive_Cluster_Test,Key=Purpose,Value=Terraform State Locking'
+            aws dynamodb tag-resource --resource-arn "arn:aws:dynamodb:${{ env.AWS_REGION }}:$(aws sts get-caller-identity --query Account --output text):table/$TABLE_NAME" --tags "Key=Name,Value=Terraform State Locks Key=Environment,Value=dev Key=Project,Value=Thrive_Cluster_Test Key=Purpose,Value=Terraform State Locking"
             
             echo "✅ DynamoDB table '$TABLE_NAME' created successfully"
           fi
