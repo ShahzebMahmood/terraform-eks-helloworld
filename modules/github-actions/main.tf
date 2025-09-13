@@ -119,6 +119,7 @@ resource "aws_secretsmanager_secret_version" "github_credentials" {
     AWS_REGION           = var.aws_region
     ECR_REPO             = var.ecr_repo_uri
     CLUSTER_NAME         = var.cluster_name
+    GITHUB_REPO          = var.github_repo
     GITHUB_ACTIONS_ROLE_ARN = aws_iam_role.github_actions.arn
   })
 }
