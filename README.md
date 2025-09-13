@@ -347,3 +347,4 @@ For issues and questions:
 - GitHub Actions now uses OIDC authentication
 - All credentials stored securely in AWS
 - Fixed repository name in IAM trust relationship
+- Fixed IAM module directory naming issue
