@@ -93,13 +93,24 @@ jobs:
             echo "ℹ️ No resources found in Terraform state"
           fi
 
-      - name: Clean up Kubernetes resources before destroy
+      - name: Terraform Destroy
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🧹 Cleaning up Kubernetes resources before destroying EKS cluster..."
-          # Check if EKS cluster exists
+          echo "💥 Destroying infrastructure with Terraform..."
+          terraform destroy \
+            -var="github_repo=$GITHUB_REPO" \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -auto-approve
+          echo "✅ Infrastructure destroyed successfully!"
+
+      - name: Clean up remaining Kubernetes resources
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🧹 Cleaning up any remaining Kubernetes resources..."
+          # Check if EKS cluster still exists
           if aws eks describe-cluster --name thrive-cluster-test --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "📦 Found EKS cluster, cleaning up Kubernetes resources..."
+            echo "📦 EKS cluster still exists, cleaning up Kubernetes resources..."
             
             # Update kubeconfig
             aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name thrive-cluster-test || echo "⚠️ Could not update kubeconfig"
@@ -122,16 +133,16 @@ jobs:
             
             echo "✅ Kubernetes resources cleaned up"
           else
-            echo "ℹ️ EKS cluster not found or already deleted"
+            echo "ℹ️ EKS cluster destroyed by Terraform"
           fi
 
-      - name: Clean up ECR images before destroy
+      - name: Clean up remaining ECR images
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🧹 Cleaning up ECR images before destroy..."
-          # Check if ECR repository exists
+          echo "🧹 Cleaning up any remaining ECR images..."
+          # Check if ECR repository still exists
           if aws ecr describe-repositories --repository-names hello-world --region ${{ env.AWS_REGION }} 2>/dev/null; then
-            echo "📦 Found ECR repository, cleaning up images..."
+            echo "📦 ECR repository still exists, cleaning up images..."
             # List and delete all images
             IMAGES=$(aws ecr list-images --repository-name hello-world --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')
             if [ "$IMAGES" != "[]" ] && [ "$IMAGES" != "null" ]; then
@@ -141,21 +152,21 @@ jobs:
               echo "ℹ️ No images found in ECR repository"
             fi
           else
-            echo "ℹ️ ECR repository not found or already deleted"
+            echo "ℹ️ ECR repository destroyed by Terraform"
           fi
 
-      - name: Clean up CloudWatch Log Groups
+      - name: Clean up remaining CloudWatch Log Groups
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🧹 Cleaning up CloudWatch Log Groups..."
+          echo "🧹 Cleaning up any remaining CloudWatch Log Groups..."
           # Delete EKS cluster log group
           aws logs delete-log-group --log-group-name "/aws/eks/thrive-cluster-test/cluster" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Log group not found or already deleted"
           echo "✅ CloudWatch Log Groups cleaned up"
 
-      - name: Clean up SNS Topic Subscriptions
+      - name: Clean up remaining SNS Topic Subscriptions
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🧹 Cleaning up SNS Topic Subscriptions..."
+          echo "🧹 Cleaning up any remaining SNS Topic Subscriptions..."
           # List and delete SNS topic subscriptions
           TOPICS=$(aws sns list-topics --region ${{ env.AWS_REGION }} --query 'Topics[?contains(TopicArn, `thrive-cluster-test`)].TopicArn' --output text 2>/dev/null || echo "")
           if [ -n "$TOPICS" ]; then
@@ -173,21 +184,10 @@ jobs:
           fi
           echo "✅ SNS Topic Subscriptions cleaned up"
 
-      - name: Terraform Destroy
-        if: steps.check-resources.outputs.resources_exist == 'true'
-        run: |
-          echo "💥 Destroying infrastructure..."
-          terraform destroy \
-            -var="github_repo=$GITHUB_REPO" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -auto-approve
-          echo "✅ Infrastructure destroyed successfully!"
-
       - name: Force cleanup of stubborn resources
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🔧 Force cleaning up any stubborn resources..."
+          echo "🔧 Force cleaning up any stubborn resources that Terraform couldn't destroy..."
           
           # Force delete any remaining ECR images
           aws ecr batch-delete-image --repository-name hello-world --region ${{ env.AWS_REGION }} --image-ids "$(aws ecr list-images --repository-name hello-world --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')" 2>/dev/null || echo "ℹ️ No ECR images to force delete"
