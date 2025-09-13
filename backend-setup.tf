@@ -47,9 +47,9 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
 # Uses PAY_PER_REQUEST billing mode to stay within AWS Free Tier
 # Free Tier includes: 25 GB storage + 25 read/write capacity units
 resource "aws_dynamodb_table" "terraform_locks" {
-  name           = "thrive-cluster-test-terraform-locks"
-  billing_mode   = "PAY_PER_REQUEST"  # Free tier friendly - only pay for actual usage
-  hash_key       = "LockID"
+  name         = "thrive-cluster-test-terraform-locks"
+  billing_mode = "PAY_PER_REQUEST" # Free tier friendly - only pay for actual usage
+  hash_key     = "LockID"
 
   attribute {
     name = "LockID"
