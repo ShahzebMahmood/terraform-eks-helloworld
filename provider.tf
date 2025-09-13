@@ -19,7 +19,7 @@ terraform {
 # Security: AWS provider with explicit configuration
 provider "aws" {
   region = var.aws_region
-  
+
   # Security: Ensure proper AWS configuration
   default_tags {
     tags = var.tags

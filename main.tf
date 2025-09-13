@@ -58,28 +58,28 @@ module "monitoring" {
 # Secrets Management Module
 # ---------------------------
 module "secrets" {
-  source               = "./modules/secrets"
-  project_name         = var.cluster_name
-  pod_role_name        = "hello-world-pod-role"
-  oidc_provider_arn    = module.eks.cluster_oidc_provider_arn
-  oidc_provider_url    = module.eks.cluster_oidc_issuer_url
-  tags                 = var.tags
+  source            = "./modules/secrets"
+  project_name      = var.cluster_name
+  pod_role_name     = "hello-world-pod-role"
+  oidc_provider_arn = module.eks.cluster_oidc_provider_arn
+  oidc_provider_url = module.eks.cluster_oidc_issuer_url
+  tags              = var.tags
 }
 
 # ---------------------------
 # GitHub Actions Module (Secrets Management)
 # ---------------------------
 module "github_actions" {
-  source                 = "./modules/github-actions"
-  project_name           = var.cluster_name
-  github_repo            = var.github_repo
-  aws_access_key_id      = var.aws_access_key_id
-  aws_secret_access_key  = var.aws_secret_access_key
-  aws_region             = var.aws_region
-  ecr_repo_uri           = module.ecr.hello_world_repo_uri
-  cluster_name           = module.eks.cluster_name
-  eks_cluster_role_arn   = module.iam.eks_cluster_role_arn
-  tags                   = var.tags
+  source                = "./modules/github-actions"
+  project_name          = var.cluster_name
+  github_repo           = var.github_repo
+  aws_access_key_id     = var.aws_access_key_id
+  aws_secret_access_key = var.aws_secret_access_key
+  aws_region            = var.aws_region
+  ecr_repo_uri          = module.ecr.hello_world_repo_uri
+  cluster_name          = module.eks.cluster_name
+  eks_cluster_role_arn  = module.iam.eks_cluster_role_arn
+  tags                  = var.tags
 }
 
 # ---------------------------

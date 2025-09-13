@@ -2,8 +2,8 @@
 resource "aws_secretsmanager_secret" "app_secrets" {
   name                    = "${var.project_name}-app-secrets"
   description             = "Application secrets for hello-world app"
-  recovery_window_in_days = 7  # Security: Short recovery window for demo
-  
+  recovery_window_in_days = 7 # Security: Short recovery window for demo
+
   tags = var.tags
 }
 
@@ -11,7 +11,7 @@ resource "aws_secretsmanager_secret" "app_secrets" {
 resource "aws_secretsmanager_secret_version" "app_secrets" {
   secret_id = aws_secretsmanager_secret.app_secrets.id
   secret_string = jsonencode({
-    NODE_ENV = "production"
+    NODE_ENV  = "production"
     LOG_LEVEL = "info"
     # Add more secrets as needed
   })
@@ -21,7 +21,7 @@ resource "aws_secretsmanager_secret_version" "app_secrets" {
 resource "aws_iam_policy" "secrets_access" {
   name        = "${var.project_name}-secrets-access"
   description = "Policy for accessing application secrets"
-  
+
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -34,7 +34,7 @@ resource "aws_iam_policy" "secrets_access" {
       }
     ]
   })
-  
+
   tags = var.tags
 }
 
