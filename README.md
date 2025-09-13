@@ -253,6 +253,11 @@ The GitHub Actions pipeline is **manually triggered only** for full control:
 1. Run the verification script: `./scripts/verify-aws-cleanup.sh`
 2. Or check manually using the commands in [AWS_CLEANUP_CHECK.md](./AWS_CLEANUP_CHECK.md)
 
+**If deployment fails due to existing resources:**
+1. The workflow will automatically run `terraform destroy` to clean up
+2. Or run the cleanup script manually: `./scripts/cleanup-existing-resources.sh`
+3. Then retry the deployment workflow
+
 ## 🚨 Troubleshooting
 
 ### Common Issues
