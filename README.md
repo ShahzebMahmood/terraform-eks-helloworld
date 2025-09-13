@@ -1,8 +1,8 @@
-# 🚀 Hello-World DevOps Project
+# Hello-World DevOps Project
 
 A complete DevOps solution that provisions AWS infrastructure and deploys a scalable web application with monitoring, CI/CD, and security best practices.
 
-## 📋 Project Overview
+## Project Overview
 
 This project demonstrates a full DevOps workflow including:
 - **Infrastructure as Code** with Terraform
@@ -12,7 +12,7 @@ This project demonstrates a full DevOps workflow including:
 - **Security** with IAM, Secrets Manager, and Pod Security Standards
 - **Auto-scaling** with Horizontal Pod Autoscaler
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -33,42 +33,42 @@ This project demonstrates a full DevOps workflow including:
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🎯 Features
+## Features
 
-### ✅ Infrastructure Provisioning
+### Infrastructure Provisioning
 - **VPC** with public subnets across 2 AZs
 - **EKS Cluster** with managed node groups
 - **Application Load Balancer** for external access
 - **Auto-scaling** with HPA (Horizontal Pod Autoscaler)
 
-### ✅ Application Deployment
+### Application Deployment
 - **Node.js Hello-World** application
 - **Docker containerization**
 - **Kubernetes deployment** with 2 replicas
 - **Health checks** and readiness probes
 
-### ✅ CI/CD Pipeline
+### CI/CD Pipeline
 - **GitHub Actions** workflow
 - **Docker image building** and pushing to ECR
 - **Automatic deployment** to EKS
 - **Security scanning** with Trivy
 
-### ✅ Monitoring & Logging
+### Monitoring & Logging
 - **CloudWatch dashboards** for cluster metrics
 - **CPU and memory monitoring**
 - **Request rate tracking**
 - **Email alerts** via SNS
 
-### ✅ Security
+### Security
 - **IAM roles** with least privilege
 - **Secrets Manager** for sensitive data
 - **Pod Security Standards** (restricted)
 - **Network policies** for micro-segmentation
 - **Encrypted state** in S3 backend
 
-## 🚀 Quick Start (5 Minutes)
+## Quick Start (5 Minutes)
 
-### ⚠️ Important: Workflow Order
+### Important: Workflow Order
 **You must run workflows in this order:**
 1. **Setup Terraform Backend** (creates S3 bucket and DynamoDB table)
 2. **CI/CD Pipeline** (deploys infrastructure and application)
@@ -154,7 +154,7 @@ kubectl port-forward service/hello-world-service 8080:80 -n hello-world
 
 Visit: `http://localhost:8080` or the load balancer URL
 
-## 🧹 Cleanup
+## Cleanup
 
 ### Destroy Infrastructure
 ```bash
@@ -165,7 +165,7 @@ terraform destroy
 ./scripts/cleanup-aws-resources.sh
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -187,7 +187,7 @@ terraform destroy
    kubectl get services -n hello-world
    ```
 
-## 📚 Learning Resources
+## Learning Resources
 
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest)
 - [Amazon EKS Documentation](https://docs.aws.amazon.com/eks/)
@@ -195,7 +195,7 @@ terraform destroy
 - [GitHub Actions](https://docs.github.com/en/actions)
 
 
-## 🆘 Support
+## Support
 
 If you encounter any issues:
 1. Check the troubleshooting section
@@ -205,4 +205,4 @@ If you encounter any issues:
 
 ---
 
-**Happy Deploying! 🚀**
+**Happy Deploying!**
