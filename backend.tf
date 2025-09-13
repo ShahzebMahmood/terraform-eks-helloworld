@@ -17,8 +17,5 @@ terraform {
     
     # Enable encryption
     encrypt = true
-    
-    # Optional: versioning for state file
-    versioning = true
   }
 }
