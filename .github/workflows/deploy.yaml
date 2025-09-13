@@ -120,6 +120,11 @@ jobs:
       - name: Set GitHub repo environment variable
         run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
 
+      - name: Get AWS Account ID
+        run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_ENV
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -195,6 +200,7 @@ jobs:
         run: |
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -out=tfplan
@@ -208,6 +214,7 @@ jobs:
           # Run terraform apply (state will be automatically saved to S3)
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
@@ -239,12 +246,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get ECR repository URI
+      - name: Get ECR repository URI and AWS Account ID
         id: get-ecr
         run: |
           ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
           echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
 
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
@@ -256,8 +265,18 @@ jobs:
           echo "Files in k8s directory:"
           ls -la k8s/
           
-          # Update image tag in deployment
+          # Update placeholders in deployment.yaml
+          echo "🔧 Updating placeholders in deployment.yaml..."
+          
+          # First, replace the IAM role ARN placeholder (more specific pattern)
+          sed -i "s|arn:aws:iam::ACCOUNT_ID:role/hello-world-pod-role|arn:aws:iam::${{ steps.get-ecr.outputs.AWS_ACCOUNT_ID }}:role/hello-world-pod-role|g" k8s/deployment.yaml
+          
+          # Then, replace the ECR image URI placeholder
           sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world:latest|${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}|g" k8s/deployment.yaml
+          
+          # Show the updated deployment file for debugging
+          echo "📋 Updated deployment.yaml:"
+          cat k8s/deployment.yaml
           
           # Step 1: Create namespace first
           echo "🏗️ Creating namespace and PodDisruptionBudget..."
@@ -271,24 +290,50 @@ jobs:
           done
           echo "✅ Namespace is ready"
           
-          # Step 3: Apply all other Kubernetes manifests
+          # Step 3: Apply all other Kubernetes manifests with error checking
           echo "🚀 Deploying application resources..."
-          kubectl apply -f k8s/deployment.yaml
-          kubectl apply -f k8s/service.yaml
-          kubectl apply -f k8s/service-clusterip.yaml
-          kubectl apply -f k8s/ingress.yaml
-          kubectl apply -f k8s/hpa.yaml
-          kubectl apply -f k8s/network-policy.yaml
+          
+          echo "📦 Applying deployment..."
+          if kubectl apply -f k8s/deployment.yaml; then
+            echo "✅ Deployment applied successfully"
+          else
+            echo "❌ Deployment failed - showing detailed error:"
+            kubectl apply -f k8s/deployment.yaml --dry-run=client -o yaml
+            exit 1
+          fi
+          
+          echo "🔗 Applying services..."
+          kubectl apply -f k8s/service.yaml || { echo "❌ Service failed"; exit 1; }
+          kubectl apply -f k8s/service-clusterip.yaml || { echo "❌ ClusterIP service failed"; exit 1; }
+          
+          echo "🌐 Applying ingress..."
+          kubectl apply -f k8s/ingress.yaml || { echo "❌ Ingress failed"; exit 1; }
+          
+          echo "📈 Applying HPA..."
+          kubectl apply -f k8s/hpa.yaml || { echo "❌ HPA failed"; exit 1; }
+          
+          echo "🔒 Applying network policy..."
+          kubectl apply -f k8s/network-policy.yaml || { echo "❌ Network policy failed"; exit 1; }
+          
+          echo "✅ All Kubernetes resources applied successfully!"
+
+      - name: Verify deployment exists
+        run: |
+          echo "🔍 Verifying deployment was created..."
+          kubectl get deployment hello-world -n hello-world || { echo "❌ Deployment not found"; exit 1; }
+          echo "✅ Deployment found"
 
       - name: Wait for deployment
         run: |
-          kubectl rollout status deployment/hello-world --timeout=300s
+          echo "⏳ Waiting for deployment to be ready..."
+          kubectl rollout status deployment/hello-world -n hello-world --timeout=300s
 
       - name: Verify deployment
         run: |
-          kubectl get pods -l app=hello-world
-          kubectl get services
-          kubectl get ingress
+          echo "🔍 Final verification..."
+          kubectl get pods -l app=hello-world -n hello-world
+          kubectl get services -n hello-world
+          kubectl get ingress -n hello-world
 
   notify:
     needs: [deploy-application]
