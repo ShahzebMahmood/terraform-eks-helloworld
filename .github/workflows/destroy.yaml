@@ -123,11 +123,14 @@ jobs:
 
       - name: Terraform Destroy
         if: steps.check-resources.outputs.resources_exist == 'true'
+        timeout-minutes: 30
         run: |
           echo "💥 Destroying infrastructure with Terraform..."
+          echo "⏰ This operation has a 30-minute timeout"
+          echo "📋 Some resources (like VPC subnets) may take several minutes to destroy"
           
           # Try terraform destroy with lock handling
-          if terraform destroy \
+          if timeout 1800 terraform destroy \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
             -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
@@ -174,7 +177,17 @@ jobs:
               fi
             else
               echo "❌ Terraform destroy failed for reasons other than state lock"
-              exit 1
+              echo "🔍 Checking if it's a timeout issue..."
+              
+              # Check if it's a timeout (exit code 124)
+              if [ $? -eq 124 ]; then
+                echo "⏰ Terraform destroy timed out after 30 minutes"
+                echo "🔄 Attempting to continue with manual cleanup of remaining resources..."
+                echo "ℹ️ Some resources may still exist and need manual cleanup"
+              else
+                echo "❌ Terraform destroy failed with error code: $?"
+                exit 1
+              fi
             fi
           fi
 
@@ -262,6 +275,39 @@ jobs:
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
           echo "🔧 Force cleaning up any stubborn resources that Terraform couldn't destroy..."
+          
+          # Check for stubborn VPC resources
+          echo "🔍 Checking for stubborn VPC resources..."
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=Thrive_Cluster_Test" --query 'Vpcs[0].VpcId' --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "None")
+          if [ "$VPC_ID" != "None" ] && [ "$VPC_ID" != "null" ]; then
+            echo "⚠️ VPC still exists: $VPC_ID"
+            echo "🔧 Attempting to force delete VPC resources..."
+            
+            # Delete any remaining ENIs
+            aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=$VPC_ID" --query 'NetworkInterfaces[?Status==`available`].NetworkInterfaceId' --output text --region ${{ env.AWS_REGION }} | xargs -r aws ec2 delete-network-interface --network-interface-id --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No ENIs to delete"
+            
+            # Delete any remaining security groups (except default)
+            aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC_ID" --query 'SecurityGroups[?GroupName!=`default`].GroupId' --output text --region ${{ env.AWS_REGION }} | xargs -r aws ec2 delete-security-group --group-id --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No security groups to delete"
+            
+            # Delete any remaining subnets
+            aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[].SubnetId' --output text --region ${{ env.AWS_REGION }} | xargs -r aws ec2 delete-subnet --subnet-id --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No subnets to delete"
+            
+            # Delete any remaining route tables (except main)
+            aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC_ID" --query 'RouteTables[?Associations[0].Main!=`true`].RouteTableId' --output text --region ${{ env.AWS_REGION }} | xargs -r aws ec2 delete-route-table --route-table-id --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No route tables to delete"
+            
+            # Delete internet gateway
+            IGW_ID=$(aws ec2 describe-internet-gateways --filters "Name=attachment.vpc-id,Values=$VPC_ID" --query 'InternetGateways[0].InternetGatewayId' --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "None")
+            if [ "$IGW_ID" != "None" ] && [ "$IGW_ID" != "null" ]; then
+              aws ec2 detach-internet-gateway --internet-gateway-id "$IGW_ID" --vpc-id "$VPC_ID" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Could not detach IGW"
+              aws ec2 delete-internet-gateway --internet-gateway-id "$IGW_ID" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Could not delete IGW"
+            fi
+            
+            # Finally delete the VPC
+            aws ec2 delete-vpc --vpc-id "$VPC_ID" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Could not delete VPC"
+            echo "✅ VPC cleanup attempted"
+          else
+            echo "ℹ️ No VPC found or already deleted"
+          fi
           
           # Force delete any remaining ECR images
           aws ecr batch-delete-image --repository-name hello-world --region ${{ env.AWS_REGION }} --image-ids "$(aws ecr list-images --repository-name hello-world --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')" 2>/dev/null || echo "ℹ️ No ECR images to force delete"
