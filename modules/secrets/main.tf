@@ -38,8 +38,13 @@ resource "aws_iam_policy" "secrets_access" {
   tags = var.tags
 }
 
+# Security: Reference existing IAM role for pod
+data "aws_iam_role" "pod_role" {
+  name = var.pod_role_name
+}
+
 # Security: Attach policy to pod role
 resource "aws_iam_role_policy_attachment" "secrets_access" {
-  role       = var.pod_role_name
+  role       = data.aws_iam_role.pod_role.name
   policy_arn = aws_iam_policy.secrets_access.arn
 }

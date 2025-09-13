@@ -10,6 +10,15 @@ resource "aws_eks_cluster" "this" {
   tags = var.tags
 }
 
+# OIDC Identity Provider for EKS (use existing provider)
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}
+
+data "aws_iam_openid_connect_provider" "eks" {
+  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}
+
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodegroup"

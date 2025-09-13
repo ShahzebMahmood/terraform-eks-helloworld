@@ -58,10 +58,12 @@ module "monitoring" {
 # Secrets Management Module
 # ---------------------------
 module "secrets" {
-  source        = "./modules/secrets"
-  project_name  = var.cluster_name
-  pod_role_name = "hello-world-pod-role"
-  tags          = var.tags
+  source               = "./modules/secrets"
+  project_name         = var.cluster_name
+  pod_role_name        = "hello-world-pod-role"
+  oidc_provider_arn    = module.eks.cluster_oidc_provider_arn
+  oidc_provider_url    = module.eks.cluster_oidc_issuer_url
+  tags                 = var.tags
 }
 
 # ---------------------------
