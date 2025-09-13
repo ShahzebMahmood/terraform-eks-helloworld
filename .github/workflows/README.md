@@ -27,10 +27,14 @@ This repository contains two main GitHub Actions workflows for managing the AWS 
 **Triggers:** Manual (workflow_dispatch) - On-demand only
 
 **What it does:**
-- Safely destroys all AWS infrastructure
+- Safely destroys all AWS infrastructure using the cached Terraform state
+- Cleans up Kubernetes resources before destroying EKS cluster
 - Cleans up ECR images before destroy
-- Verifies destruction was successful
-- Provides detailed logging
+- Cleans up CloudWatch log groups and SNS subscriptions
+- Verifies destruction of all resource types
+- Provides comprehensive logging and verification
+- Includes force cleanup for stubborn resources
+- Uses the same state file from the deploy workflow to ensure accurate destruction
 
 **How to use:**
 1. Go to **Actions** tab in GitHub
@@ -45,6 +49,18 @@ This repository contains two main GitHub Actions workflows for managing the AWS 
 - **Confirmation Required**: Destroy workflow requires explicit confirmation
 - **Resource Verification**: Checks that resources are actually destroyed
 - **Safe Cleanup**: Removes ECR images before destroying repository
+- **State File Caching**: Uses GitHub Actions cache to preserve Terraform state between workflows
+
+## 📁 State File Management
+
+Both workflows use GitHub Actions cache to manage the Terraform state file:
+
+- **Cache Key**: `terraform-state-main` (consistent across both workflows)
+- **Cached Files**: `.terraform/`, `terraform.tfstate`, `terraform.tfstate.backup`
+- **Purpose**: Ensures the destroy workflow uses the exact same state file from the deploy workflow
+- **Benefit**: Prevents orphaned resources and ensures accurate destruction
+
+**Important**: The destroy workflow will only work if there's a cached state file from a previous deploy workflow run.
 
 ## 💰 Cost Management
 
@@ -71,11 +87,23 @@ This repository contains two main GitHub Actions workflows for managing the AWS 
 
 ### Manual Cleanup:
 
-If the destroy workflow fails, you can manually clean up:
+If the destroy workflow fails, you can use the comprehensive cleanup script:
+
+```bash
+# Run the comprehensive cleanup script
+./scripts/cleanup-aws-resources.sh
+```
+
+Or manually clean up specific resources:
 
 ```bash
 # Delete ECR images
 aws ecr batch-delete-image --repository-name hello-world --image-ids "$(aws ecr list-images --repository-name hello-world --query 'imageIds[*]' --output json)"
+
+# Delete Kubernetes resources
+kubectl delete deployment hello-world --ignore-not-found=true
+kubectl delete service hello-world-service --ignore-not-found=true
+kubectl delete ingress hello-world-ingress --ignore-not-found=true
 
 # Run terraform destroy
 terraform destroy -auto-approve

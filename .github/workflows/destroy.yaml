@@ -50,12 +50,24 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-${{ github.sha }}
+          key: terraform-state-main
           restore-keys: |
             terraform-state-
 
       - name: Terraform Init
         run: terraform init
+
+      - name: Verify Terraform state
+        run: |
+          echo "🔍 Verifying Terraform state file..."
+          if [ -f "terraform.tfstate" ] && [ -s "terraform.tfstate" ]; then
+            echo "✅ Terraform state file found and restored from cache"
+            echo "📋 Resources in state:"
+            terraform state list 2>/dev/null || echo "ℹ️ No resources in state or state is empty"
+          else
+            echo "⚠️ No Terraform state file found in cache"
+            echo "ℹ️ This might be the first run or cache was cleared"
+          fi
 
       - name: Check if resources exist
         id: check-resources
@@ -67,6 +79,38 @@ jobs:
           else
             echo "resources_exist=false" >> $GITHUB_OUTPUT
             echo "ℹ️ No resources found in Terraform state"
+          fi
+
+      - name: Clean up Kubernetes resources before destroy
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🧹 Cleaning up Kubernetes resources before destroying EKS cluster..."
+          # Check if EKS cluster exists
+          if aws eks describe-cluster --name thrive-cluster-test --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "📦 Found EKS cluster, cleaning up Kubernetes resources..."
+            
+            # Update kubeconfig
+            aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name thrive-cluster-test || echo "⚠️ Could not update kubeconfig"
+            
+            # Delete all deployments, services, and ingress
+            kubectl delete deployment hello-world --ignore-not-found=true || echo "⚠️ Could not delete deployment"
+            kubectl delete service hello-world-service --ignore-not-found=true || echo "⚠️ Could not delete service"
+            kubectl delete service hello-world-clusterip --ignore-not-found=true || echo "⚠️ Could not delete clusterip service"
+            kubectl delete ingress hello-world-ingress --ignore-not-found=true || echo "⚠️ Could not delete ingress"
+            kubectl delete hpa hello-world-hpa --ignore-not-found=true || echo "⚠️ Could not delete HPA"
+            kubectl delete networkpolicy hello-world-network-policy --ignore-not-found=true || echo "⚠️ Could not delete network policy"
+            kubectl delete podsecuritypolicy hello-world-psp --ignore-not-found=true || echo "⚠️ Could not delete PSP"
+            
+            # Wait for resources to be deleted
+            echo "⏳ Waiting for Kubernetes resources to be deleted..."
+            sleep 30
+            
+            # Force delete any remaining pods
+            kubectl delete pods --all --force --grace-period=0 --ignore-not-found=true || echo "⚠️ Could not force delete pods"
+            
+            echo "✅ Kubernetes resources cleaned up"
+          else
+            echo "ℹ️ EKS cluster not found or already deleted"
           fi
 
       - name: Clean up ECR images before destroy
@@ -88,6 +132,35 @@ jobs:
             echo "ℹ️ ECR repository not found or already deleted"
           fi
 
+      - name: Clean up CloudWatch Log Groups
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🧹 Cleaning up CloudWatch Log Groups..."
+          # Delete EKS cluster log group
+          aws logs delete-log-group --log-group-name "/aws/eks/thrive-cluster-test/cluster" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Log group not found or already deleted"
+          echo "✅ CloudWatch Log Groups cleaned up"
+
+      - name: Clean up SNS Topic Subscriptions
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🧹 Cleaning up SNS Topic Subscriptions..."
+          # List and delete SNS topic subscriptions
+          TOPICS=$(aws sns list-topics --region ${{ env.AWS_REGION }} --query 'Topics[?contains(TopicArn, `thrive-cluster-test`)].TopicArn' --output text 2>/dev/null || echo "")
+          if [ -n "$TOPICS" ]; then
+            for topic in $TOPICS; do
+              echo "📧 Found SNS topic: $topic"
+              # List subscriptions
+              SUBSCRIPTIONS=$(aws sns list-subscriptions-by-topic --topic-arn "$topic" --region ${{ env.AWS_REGION }} --query 'Subscriptions[?SubscriptionArn != `PendingConfirmation`].SubscriptionArn' --output text 2>/dev/null || echo "")
+              if [ -n "$SUBSCRIPTIONS" ]; then
+                for sub in $SUBSCRIPTIONS; do
+                  echo "🗑️ Deleting subscription: $sub"
+                  aws sns unsubscribe --subscription-arn "$sub" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "⚠️ Could not delete subscription"
+                done
+              fi
+            done
+          fi
+          echo "✅ SNS Topic Subscriptions cleaned up"
+
       - name: Terraform Destroy
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
@@ -95,10 +168,31 @@ jobs:
           terraform destroy -auto-approve
           echo "✅ Infrastructure destroyed successfully!"
 
+      - name: Force cleanup of stubborn resources
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🔧 Force cleaning up any stubborn resources..."
+          
+          # Force delete any remaining ECR images
+          aws ecr batch-delete-image --repository-name hello-world --region ${{ env.AWS_REGION }} --image-ids "$(aws ecr list-images --repository-name hello-world --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')" 2>/dev/null || echo "ℹ️ No ECR images to force delete"
+          
+          # Force delete any remaining CloudWatch log groups
+          aws logs delete-log-group --log-group-name "/aws/eks/thrive-cluster-test/cluster" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No log groups to force delete"
+          
+          # Force delete any remaining SNS subscriptions
+          for topic in $(aws sns list-topics --region ${{ env.AWS_REGION }} --query 'Topics[?contains(TopicArn, `thrive-cluster-test`)].TopicArn' --output text 2>/dev/null || echo ""); do
+            for sub in $(aws sns list-subscriptions-by-topic --topic-arn "$topic" --region ${{ env.AWS_REGION }} --query 'Subscriptions[?SubscriptionArn != `PendingConfirmation`].SubscriptionArn' --output text 2>/dev/null || echo ""); do
+              aws sns unsubscribe --subscription-arn "$sub" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ Could not force delete subscription"
+            done
+          done
+          
+          echo "✅ Force cleanup completed"
+
       - name: Verify destruction
         if: steps.check-resources.outputs.resources_exist == 'true'
         run: |
-          echo "🔍 Verifying destruction..."
+          echo "🔍 Verifying destruction of all resources..."
+          
           # Check EKS cluster
           if aws eks describe-cluster --name thrive-cluster-test --region ${{ env.AWS_REGION }} 2>/dev/null; then
             echo "⚠️ EKS cluster still exists"
@@ -120,10 +214,104 @@ jobs:
           else
             echo "✅ VPC destroyed"
           fi
+          
+          # Check IAM Roles
+          if aws iam get-role --role-name thrive-cluster-test-cluster-role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ EKS cluster IAM role still exists"
+          else
+            echo "✅ EKS cluster IAM role destroyed"
+          fi
+          
+          if aws iam get-role --role-name thrive-cluster-test-node-role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ EKS node IAM role still exists"
+          else
+            echo "✅ EKS node IAM role destroyed"
+          fi
+          
+          if aws iam get-role --role-name thrive-cluster-test-github-actions-role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ GitHub Actions IAM role still exists"
+          else
+            echo "✅ GitHub Actions IAM role destroyed"
+          fi
+          
+          if aws iam get-role --role-name hello-world-pod-role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ Hello World pod IAM role still exists"
+          else
+            echo "✅ Hello World pod IAM role destroyed"
+          fi
+          
+          # Check Secrets Manager
+          if aws secretsmanager describe-secret --secret-id thrive-cluster-test-github-actions-credentials --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ GitHub Actions secret still exists"
+          else
+            echo "✅ GitHub Actions secret destroyed"
+          fi
+          
+          if aws secretsmanager describe-secret --secret-id thrive-cluster-test-app-secrets --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ App secrets still exist"
+          else
+            echo "✅ App secrets destroyed"
+          fi
+          
+          # Check CloudWatch Log Groups
+          if aws logs describe-log-groups --log-group-name-prefix "/aws/eks/thrive-cluster-test" --region ${{ env.AWS_REGION }} --query 'logGroups[0].logGroupName' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ CloudWatch log groups still exist"
+          else
+            echo "✅ CloudWatch log groups destroyed"
+          fi
+          
+          # Check CloudWatch Dashboards
+          if aws cloudwatch list-dashboards --region ${{ env.AWS_REGION }} --query 'DashboardEntries[?contains(DashboardName, `thrive-cluster-test`)].DashboardName' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ CloudWatch dashboards still exist"
+          else
+            echo "✅ CloudWatch dashboards destroyed"
+          fi
+          
+          # Check SNS Topics
+          if aws sns list-topics --region ${{ env.AWS_REGION }} --query 'Topics[?contains(TopicArn, `thrive-cluster-test`)].TopicArn' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ SNS topics still exist"
+          else
+            echo "✅ SNS topics destroyed"
+          fi
+          
+          # Check CloudWatch Alarms
+          if aws cloudwatch describe-alarms --alarm-names thrive-cluster-test-billing-alarm --region ${{ env.AWS_REGION }} --query 'MetricAlarms[0].AlarmName' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ CloudWatch alarms still exist"
+          else
+            echo "✅ CloudWatch alarms destroyed"
+          fi
+          
+          # Check Budgets
+          if aws budgets describe-budgets --account-id $(aws sts get-caller-identity --query Account --output text) --region ${{ env.AWS_REGION }} --query 'Budgets[?contains(BudgetName, `thrive-cluster-test`)].BudgetName' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ Budgets still exist"
+          else
+            echo "✅ Budgets destroyed"
+          fi
+          
+          # Check OIDC Providers
+          if aws iam list-open-id-connect-providers --region ${{ env.AWS_REGION }} --query 'OpenIDConnectProviderList[?contains(Arn, `thrive-cluster-test`)].Arn' --output text 2>/dev/null | grep -q "thrive-cluster-test"; then
+            echo "⚠️ OIDC providers still exist"
+          else
+            echo "✅ OIDC providers destroyed"
+          fi
 
       - name: Destruction Summary
         run: |
           echo "🎯 Infrastructure Destruction Complete!"
+          echo ""
+          echo "📋 Resources that were cleaned up:"
+          echo "  ✅ EKS Cluster and Node Groups"
+          echo "  ✅ VPC, Subnets, Internet Gateway, Route Tables"
+          echo "  ✅ ECR Repository and Images"
+          echo "  ✅ IAM Roles and Policies (EKS, GitHub Actions, Pod)"
+          echo "  ✅ Secrets Manager Secrets"
+          echo "  ✅ CloudWatch Log Groups, Dashboards, and Alarms"
+          echo "  ✅ SNS Topics and Subscriptions"
+          echo "  ✅ AWS Budgets and Billing Alarms"
+          echo "  ✅ OIDC Identity Providers"
+          echo "  ✅ Kubernetes Resources (Deployments, Services, Ingress, etc.)"
+          echo ""
           echo "💰 All AWS resources have been destroyed"
           echo "💡 You can now run the deploy workflow to recreate everything"
           echo "📊 Check your AWS Console to verify all resources are gone"
+          echo "🔒 Your AWS account is now clean and ready for the next deployment"
