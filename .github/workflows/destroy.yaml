@@ -1,0 +1,118 @@
+name: Destroy Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm infrastructure destruction'
+        required: true
+        default: ''
+        type: string
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  destroy-infrastructure:
+    runs-on: ubuntu-latest
+    environment: AWS_ACCESS_KEY_ID
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Confirm destruction
+        run: |
+          if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
+            echo "❌ Destruction not confirmed. Please type 'DESTROY' to proceed."
+            exit 1
+          fi
+          echo "✅ Destruction confirmed. Proceeding with infrastructure teardown..."
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Check if resources exist
+        id: check-resources
+        run: |
+          if terraform state list 2>/dev/null | grep -q .; then
+            echo "resources_exist=true" >> $GITHUB_OUTPUT
+            echo "📋 Found existing resources to destroy"
+            terraform state list
+          else
+            echo "resources_exist=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No resources found in Terraform state"
+          fi
+
+      - name: Clean up ECR images before destroy
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🧹 Cleaning up ECR images before destroy..."
+          # Check if ECR repository exists
+          if aws ecr describe-repositories --repository-names hello-world --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "📦 Found ECR repository, cleaning up images..."
+            # List and delete all images
+            IMAGES=$(aws ecr list-images --repository-name hello-world --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')
+            if [ "$IMAGES" != "[]" ] && [ "$IMAGES" != "null" ]; then
+              echo "🗑️ Deleting ECR images..."
+              aws ecr batch-delete-image --repository-name hello-world --region ${{ env.AWS_REGION }} --image-ids "$IMAGES" || echo "⚠️ Some images may have already been deleted"
+            else
+              echo "ℹ️ No images found in ECR repository"
+            fi
+          else
+            echo "ℹ️ ECR repository not found or already deleted"
+          fi
+
+      - name: Terraform Destroy
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "💥 Destroying infrastructure..."
+          terraform destroy -auto-approve
+          echo "✅ Infrastructure destroyed successfully!"
+
+      - name: Verify destruction
+        if: steps.check-resources.outputs.resources_exist == 'true'
+        run: |
+          echo "🔍 Verifying destruction..."
+          # Check EKS cluster
+          if aws eks describe-cluster --name thrive-cluster-test --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ EKS cluster still exists"
+          else
+            echo "✅ EKS cluster destroyed"
+          fi
+          
+          # Check ECR repository
+          if aws ecr describe-repositories --repository-names hello-world --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ ECR repository still exists"
+          else
+            echo "✅ ECR repository destroyed"
+          fi
+          
+          # Check VPC
+          VPC_ID=$(aws ec2 describe-vpcs --filters "Name=tag:Project,Values=Thrive_Cluster_Test" --query 'Vpcs[0].VpcId' --output text --region ${{ env.AWS_REGION }} 2>/dev/null || echo "None")
+          if [ "$VPC_ID" != "None" ] && [ "$VPC_ID" != "null" ]; then
+            echo "⚠️ VPC still exists: $VPC_ID"
+          else
+            echo "✅ VPC destroyed"
+          fi
+
+      - name: Destruction Summary
+        run: |
+          echo "🎯 Infrastructure Destruction Complete!"
+          echo "💰 All AWS resources have been destroyed"
+          echo "💡 You can now run the deploy workflow to recreate everything"
+          echo "📊 Check your AWS Console to verify all resources are gone"
