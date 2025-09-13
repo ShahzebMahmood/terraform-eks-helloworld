@@ -10,5 +10,5 @@ output "secrets_name" {
 
 output "pod_role_arn" {
   description = "ARN of the IAM role for the pod"
-  value       = data.aws_iam_role.pod_role.arn
+  value       = aws_iam_role.pod_role.arn
 }
