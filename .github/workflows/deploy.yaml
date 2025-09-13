@@ -256,15 +256,25 @@ jobs:
           echo "Files in k8s directory:"
           ls -la k8s/
           
-          # Debug: Show content of pod-security-policy.yaml
-          echo "Content of pod-security-policy.yaml:"
-          cat k8s/pod-security-policy.yaml
-          
           # Update image tag in deployment
           sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world:latest|${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}|g" k8s/deployment.yaml
           
-          # Apply all Kubernetes manifests
-          kubectl apply -f k8s/
+          # Step 1: Create namespace first
+          echo "🏗️ Creating namespace and PodDisruptionBudget..."
+          kubectl apply -f k8s/pod-security-policy.yaml
+          
+          # Step 2: Wait for namespace to be ready
+          echo "⏳ Waiting for namespace to be ready..."
+          kubectl wait --for=condition=Active namespace/hello-world --timeout=60s
+          
+          # Step 3: Apply all other Kubernetes manifests
+          echo "🚀 Deploying application resources..."
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/service-clusterip.yaml
+          kubectl apply -f k8s/ingress.yaml
+          kubectl apply -f k8s/hpa.yaml
+          kubectl apply -f k8s/network-policy.yaml
 
       - name: Wait for deployment
         run: |
