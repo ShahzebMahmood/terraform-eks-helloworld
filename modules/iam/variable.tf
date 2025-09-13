@@ -21,6 +21,12 @@ variable "eks_oidc_issuer_url" {
   default     = ""
 }
 
+variable "eks_oidc_provider_arn" {
+  description = "The OIDC provider ARN from the EKS cluster"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "A map of tags to assign to the resources"
   type        = map(string)

@@ -195,13 +195,15 @@ curl http://localhost:3000/metrics
 │   ├── deploy.yaml       # GitHub Actions deploy workflow
 │   └── destroy.yaml      # GitHub Actions destroy workflow
 ├── scripts/              # Utility scripts
-│   └── cleanup-aws-resources.sh # Manual cleanup script
+│   ├── cleanup-aws-resources.sh # Manual cleanup script
+│   └── verify-aws-cleanup.sh # AWS cleanup verification script
 ├── main.tf               # Main Terraform configuration
 ├── variables.tf          # Terraform variables
 ├── outputs.tf            # Terraform outputs
 ├── README.md             # This file
 ├── ARCHITECTURE.md       # System architecture
 ├── DEPLOYMENT_GUIDE.md   # Step-by-step deployment
+├── AWS_CLEANUP_CHECK.md  # AWS cleanup verification guide
 ├── FREE_TIER_GUIDE.md    # Free tier optimization
 ├── DEVELOPMENT_JOURNAL.md # 3-day development process
 ├── LEARNING_NOTES.md     # Key learnings and mistakes
@@ -246,6 +248,10 @@ The GitHub Actions pipeline is **manually triggered only** for full control:
 2. Select the workflow you want to run
 3. Click **"Run workflow"**
 4. Click **"Run workflow"** to confirm
+
+**How to verify cleanup:**
+1. Run the verification script: `./scripts/verify-aws-cleanup.sh`
+2. Or check manually using the commands in [AWS_CLEANUP_CHECK.md](./AWS_CLEANUP_CHECK.md)
 
 ## 🚨 Troubleshooting
 

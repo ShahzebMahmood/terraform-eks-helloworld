@@ -27,6 +27,11 @@ resource "aws_iam_openid_connect_provider" "eks" {
   ]
 
   tags = var.tags
+
+  # Add lifecycle rule to prevent concurrent modification issues
+  lifecycle {
+    ignore_changes = [thumbprint_list]
+  }
 }
 
 resource "aws_eks_node_group" "this" {

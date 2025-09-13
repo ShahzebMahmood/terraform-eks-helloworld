@@ -42,4 +42,7 @@ resource "aws_iam_policy" "secrets_access" {
 resource "aws_iam_role_policy_attachment" "secrets_access" {
   role       = var.pod_role_name
   policy_arn = aws_iam_policy.secrets_access.arn
+  
+  # Add explicit dependency to ensure the role exists before attaching policy
+  depends_on = [var.pod_role_arn]
 }

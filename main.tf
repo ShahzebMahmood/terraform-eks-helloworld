@@ -15,11 +15,12 @@ module "vpc" {
 # This took forever to get right - IAM is confusing!
 # ---------------------------
 module "iam" {
-  source              = "./modules/iam"
-  cluster_name        = var.cluster_name
-  cluster_role_name   = "${var.cluster_name}-cluster-role"
-  node_role_name      = "${var.cluster_name}-node-role"
-  eks_oidc_issuer_url = module.eks.cluster_oidc_issuer_url
+  source                = "./modules/iam"
+  cluster_name          = var.cluster_name
+  cluster_role_name     = "${var.cluster_name}-cluster-role"
+  node_role_name        = "${var.cluster_name}-node-role"
+  eks_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
+  eks_oidc_provider_arn = module.eks.cluster_oidc_provider_arn
 }
 # ---------------------------
 module "ecr" {
