@@ -107,8 +107,6 @@ jobs:
         id: get-secrets
         run: |
           SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_MANAGER_SECRET_NAME }} --query SecretString --output text)
-          echo "AWS_ACCESS_KEY_ID=$(echo $SECRETS | jq -r '.AWS_ACCESS_KEY_ID')" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$(echo $SECRETS | jq -r '.AWS_SECRET_ACCESS_KEY')" >> $GITHUB_ENV
           echo "GITHUB_REPO=$(echo $SECRETS | jq -r '.GITHUB_REPO')" >> $GITHUB_ENV
 
       - name: Setup Terraform
@@ -129,16 +127,16 @@ jobs:
         run: |
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
-            -var="aws_access_key_id=$AWS_ACCESS_KEY_ID" \
-            -var="aws_secret_access_key=$AWS_SECRET_ACCESS_KEY" \
+            -var="aws_access_key_id=placeholder" \
+            -var="aws_secret_access_key=placeholder" \
             -out=tfplan
 
       - name: Terraform Apply
         run: |
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
-            -var="aws_access_key_id=$AWS_ACCESS_KEY_ID" \
-            -var="aws_secret_access_key=$AWS_SECRET_ACCESS_KEY" \
+            -var="aws_access_key_id=placeholder" \
+            -var="aws_secret_access_key=placeholder" \
             -auto-approve
 
   deploy-application:

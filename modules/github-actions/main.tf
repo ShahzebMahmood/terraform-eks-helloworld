@@ -114,8 +114,6 @@ resource "aws_secretsmanager_secret" "github_credentials" {
 resource "aws_secretsmanager_secret_version" "github_credentials" {
   secret_id = aws_secretsmanager_secret.github_credentials.id
   secret_string = jsonencode({
-    AWS_ACCESS_KEY_ID       = var.aws_access_key_id
-    AWS_SECRET_ACCESS_KEY   = var.aws_secret_access_key
     AWS_REGION              = var.aws_region
     ECR_REPO                = var.ecr_repo_uri
     CLUSTER_NAME            = var.cluster_name
