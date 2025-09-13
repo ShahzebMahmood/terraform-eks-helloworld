@@ -11,16 +11,15 @@ module "vpc" {
 }
 
 # ---------------------------
-# IAM Module (Cluster & Node Roles)
+# IAM Module (Basic Cluster & Node Roles - No OIDC dependencies)
 # This took forever to get right - IAM is confusing!
 # ---------------------------
-module "iam" {
-  source                = "./modules/iam"
-  cluster_name          = var.cluster_name
-  cluster_role_name     = "${var.cluster_name}-cluster-role"
-  node_role_name        = "${var.cluster_name}-node-role"
-  eks_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
-  eks_oidc_provider_arn = module.eks.cluster_oidc_provider_arn
+module "iam_basic" {
+  source            = "./modules/iam-basic"
+  cluster_name      = var.cluster_name
+  cluster_role_name = "${var.cluster_name}-cluster-role"
+  node_role_name    = "${var.cluster_name}-node-role"
+  tags              = var.tags
 }
 # ---------------------------
 module "ecr" {
@@ -35,8 +34,8 @@ module "ecr" {
 module "eks" {
   source           = "./modules/eks"
   cluster_name     = var.cluster_name
-  cluster_role_arn = module.iam.eks_cluster_role_arn
-  node_role_arn    = module.iam.eks_node_role_arn
+  cluster_role_arn = module.iam_basic.eks_cluster_role_arn
+  node_role_arn    = module.iam_basic.eks_node_role_arn
   subnet_ids       = module.vpc.public_subnet_ids
   desired_capacity = var.desired_capacity
   max_size         = var.max_size
@@ -56,13 +55,24 @@ module "monitoring" {
 }
 
 # ---------------------------
+# IAM Module (OIDC-dependent resources)
+# ---------------------------
+module "iam_oidc" {
+  source                = "./modules/iam-oidc"
+  cluster_name          = var.cluster_name
+  eks_oidc_issuer_url   = module.eks.cluster_oidc_issuer_url
+  eks_oidc_provider_arn = module.eks.cluster_oidc_provider_arn
+  tags                  = var.tags
+}
+
+# ---------------------------
 # Secrets Management Module
 # ---------------------------
 module "secrets" {
   source            = "./modules/secrets"
   project_name      = var.cluster_name
   pod_role_name     = "hello-world-pod-role"
-  pod_role_arn      = module.iam.hello_world_pod_role_arn
+  pod_role_arn      = module.iam_oidc.hello_world_pod_role_arn
   oidc_provider_arn = module.eks.cluster_oidc_provider_arn
   oidc_provider_url = module.eks.cluster_oidc_issuer_url
   tags              = var.tags
@@ -80,7 +90,7 @@ module "github_actions" {
   aws_region            = var.aws_region
   ecr_repo_uri          = module.ecr.hello_world_repo_uri
   cluster_name          = module.eks.cluster_name
-  eks_cluster_role_arn  = module.iam.eks_cluster_role_arn
+  eks_cluster_role_arn  = module.iam_basic.eks_cluster_role_arn
   tags                  = var.tags
 }
 
