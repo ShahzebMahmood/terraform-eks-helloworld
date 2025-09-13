@@ -68,6 +68,12 @@ This project demonstrates a full DevOps workflow including:
 
 ## 🚀 Quick Start (5 Minutes)
 
+### ⚠️ Important: Workflow Order
+**You must run workflows in this order:**
+1. **Setup Terraform Backend** (creates S3 bucket and DynamoDB table)
+2. **CI/CD Pipeline** (deploys infrastructure and application)
+3. **Destroy Infrastructure** (cleanup when done)
+
 ### Prerequisites
 - AWS Account (Free Tier eligible)
 - GitHub Account
@@ -96,21 +102,39 @@ Add these secrets:
 - `AWS_ACCESS_KEY_ID`: Your AWS access key
 - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
 
-### Step 4: Deploy Infrastructure
+### Step 4: Set Up Backend Infrastructure
+**Option A: Using GitHub Actions (Recommended)**
+1. Go to Actions tab in GitHub
+2. Select "Setup Terraform Backend"
+3. Click "Run workflow"
+4. Type "yes" to confirm
+5. Click "Run workflow"
+
+**Option B: Using Local Script**
 ```bash
 # Make scripts executable
 chmod +x scripts/*.sh
 
 # Set up Terraform backend
 ./scripts/setup-terraform-backend.sh
+```
 
+### Step 5: Deploy Infrastructure
+**Option A: Using GitHub Actions (Recommended)**
+1. Go to Actions tab in GitHub
+2. Select "CI/CD Pipeline for Hello-World App"
+3. Click "Run workflow"
+4. Click "Run workflow"
+
+**Option B: Using Local Commands**
+```bash
 # Deploy infrastructure
 terraform init
 terraform plan
 terraform apply
 ```
 
-### Step 5: Deploy Application
+### Step 6: Deploy Application
 ```bash
 # Update kubeconfig
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
@@ -119,7 +143,7 @@ aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 kubectl apply -f k8s/
 ```
 
-### Step 6: Access Your Application
+### Step 7: Access Your Application
 ```bash
 # Get the load balancer URL
 kubectl get ingress hello-world-ingress -n hello-world
