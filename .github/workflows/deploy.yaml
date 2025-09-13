@@ -125,7 +125,7 @@ jobs:
             .terraform
             terraform.tfstate
             terraform.tfstate.backup
-          key: terraform-state-${{ github.sha }}
+          key: terraform-state-main
           restore-keys: |
             terraform-state-
 

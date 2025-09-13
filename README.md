@@ -192,7 +192,10 @@ curl http://localhost:3000/metrics
 │   ├── ecr/              # Container registry
 │   └── monitoring/       # CloudWatch monitoring
 ├── .github/workflows/     # CI/CD pipeline
-│   └── deploy.yaml       # GitHub Actions workflow
+│   ├── deploy.yaml       # GitHub Actions deploy workflow
+│   └── destroy.yaml      # GitHub Actions destroy workflow
+├── scripts/              # Utility scripts
+│   └── cleanup-aws-resources.sh # Manual cleanup script
 ├── main.tf               # Main Terraform configuration
 ├── variables.tf          # Terraform variables
 ├── outputs.tf            # Terraform outputs
@@ -223,11 +226,15 @@ The GitHub Actions pipeline includes:
 
 3. **Infrastructure Stage**
    - Terraform validation
-   - Infrastructure deployment
-   - Resource provisioning
+   - Infrastructure provisioning (37 AWS resources)
+   - Application deployment to EKS
 
-4. **Deploy Stage**
-   - Kubernetes deployment
+4. **Destroy Stage** (Manual trigger)
+   - Comprehensive resource cleanup
+   - Kubernetes resource deletion
+   - ECR image cleanup
+   - CloudWatch and SNS cleanup
+   - Full verification of destruction
    - Health check verification
    - Rollout status monitoring
 
