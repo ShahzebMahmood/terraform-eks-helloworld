@@ -60,22 +60,7 @@ resource "aws_iam_role_policy_attachment" "registry_read_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
-# OIDC Provider for EKS
-# This was the hardest part - spent hours debugging this
-data "tls_certificate" "eks" {
-  url = var.eks_oidc_issuer_url
-}
-
-resource "aws_iam_openid_connect_provider" "eks" {
-  # The thumbprint can change when AWS rotates certificates. A lifecycle block
-  # is needed to prevent a circular dependency error on subsequent plans.
-  lifecycle { ignore_changes = [thumbprint_list] }
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
-  url             = var.eks_oidc_issuer_url
-
-  tags = var.tags
-}
+# OIDC Provider for EKS is now created in the EKS module to avoid circular dependencies
 
 # IAM Role for Hello-World pod
 resource "aws_iam_role" "hello_world_pod" {
@@ -86,7 +71,7 @@ resource "aws_iam_role" "hello_world_pod" {
     Statement = [{
       Effect = "Allow"
       Principal = {
-        Federated = aws_iam_openid_connect_provider.eks.arn
+        Federated = var.eks_oidc_provider_arn
       }
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
