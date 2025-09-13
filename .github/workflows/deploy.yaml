@@ -131,6 +131,37 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
+      - name: Check for existing resources
+        run: |
+          echo "🔍 Checking for existing AWS resources..."
+          
+          # Check if ECR repository exists
+          if aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ ECR repository '${{ env.ECR_REPOSITORY }}' already exists"
+            echo "EXISTING_ECR=true" >> $GITHUB_ENV
+          else
+            echo "✅ ECR repository '${{ env.ECR_REPOSITORY }}' does not exist"
+            echo "EXISTING_ECR=false" >> $GITHUB_ENV
+          fi
+          
+          # Check if EKS cluster exists
+          if aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "⚠️ EKS cluster '${{ env.CLUSTER_NAME }}' already exists"
+            echo "EXISTING_EKS=true" >> $GITHUB_ENV
+          else
+            echo "✅ EKS cluster '${{ env.CLUSTER_NAME }}' does not exist"
+            echo "EXISTING_EKS=false" >> $GITHUB_ENV
+          fi
+          
+          # Check if IAM roles exist
+          for role in "thrive-cluster-test-cluster-role" "thrive-cluster-test-node-role" "thrive-cluster-test-github-actions-role" "hello-world-pod-role"; do
+            if aws iam get-role --role-name $role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+              echo "⚠️ IAM role '$role' already exists"
+            else
+              echo "✅ IAM role '$role' does not exist"
+            fi
+          done
+
       - name: Terraform Plan
         run: |
           terraform plan \
@@ -140,6 +171,7 @@ jobs:
             -out=tfplan
 
       - name: Terraform Apply
+        id: terraform-apply
         run: |
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
@@ -147,8 +179,137 @@ jobs:
             -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
 
+  cleanup-on-failure:
+    needs: [deploy-infrastructure]
+    runs-on: ubuntu-latest
+    environment: AWS_ACCESS_KEY_ID
+    if: failure() && needs.deploy-infrastructure.result == 'failure'
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set GitHub repo environment variable
+        run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Cache Terraform state
+        uses: actions/cache@v3
+        with:
+          path: |
+            .terraform
+            terraform.tfstate
+            terraform.tfstate.backup
+          key: terraform-state-main
+          restore-keys: |
+            terraform-state-
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        run: |
+          echo "🧹 Running terraform destroy to clean up any partially created resources..."
+          
+          # Check if we have any resources in state
+          if terraform state list 2>/dev/null | grep -q .; then
+            echo "📋 Found resources in Terraform state, destroying them..."
+            terraform destroy \
+              -var="github_repo=$GITHUB_REPO" \
+              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -auto-approve
+            echo "✅ Terraform destroy completed"
+          else
+            echo "ℹ️ No resources found in Terraform state"
+          fi
+
+      - name: Clean up any remaining resources not in state
+        run: |
+          echo "🧹 Cleaning up any remaining AWS resources that may not be in Terraform state..."
+          
+          # Clean up ECR repository and images (if not in state)
+          if aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "🗑️ Deleting ECR repository and images..."
+            # Delete all images first
+            IMAGES=$(aws ecr list-images --repository-name ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} --query 'imageIds[*]' --output json 2>/dev/null || echo '[]')
+            if [ "$IMAGES" != "[]" ] && [ "$IMAGES" != "null" ]; then
+              aws ecr batch-delete-image --repository-name ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} --image-ids "$IMAGES" || echo "⚠️ Some images may have already been deleted"
+            fi
+            # Delete repository
+            aws ecr delete-repository --repository-name ${{ env.ECR_REPOSITORY }} --region ${{ env.AWS_REGION }} --force || echo "⚠️ Repository may have already been deleted"
+          fi
+          
+          # Clean up EKS cluster (if not in state)
+          if aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} 2>/dev/null; then
+            echo "🗑️ Deleting EKS cluster..."
+            # Delete node groups first
+            NODE_GROUPS=$(aws eks list-nodegroups --cluster-name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'nodegroups' --output text 2>/dev/null || echo "")
+            if [ -n "$NODE_GROUPS" ] && [ "$NODE_GROUPS" != "None" ]; then
+              for nodegroup in $NODE_GROUPS; do
+                echo "🗑️ Deleting node group: $nodegroup"
+                aws eks delete-nodegroup --cluster-name ${{ env.CLUSTER_NAME }} --nodegroup-name $nodegroup --region ${{ env.AWS_REGION }} || echo "⚠️ Node group may have already been deleted"
+              done
+            fi
+            # Wait for node groups to be deleted
+            echo "⏳ Waiting for node groups to be deleted..."
+            sleep 60
+            # Delete cluster
+            aws eks delete-cluster --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }} || echo "⚠️ Cluster may have already been deleted"
+          fi
+          
+          # Clean up IAM roles (if not in state)
+          for role in "thrive-cluster-test-cluster-role" "thrive-cluster-test-node-role" "thrive-cluster-test-github-actions-role" "hello-world-pod-role"; do
+            if aws iam get-role --role-name $role --region ${{ env.AWS_REGION }} 2>/dev/null; then
+              echo "🗑️ Deleting IAM role: $role"
+              # Detach policies first
+              aws iam list-attached-role-policies --role-name $role --query 'AttachedPolicies[*].PolicyArn' --output text | xargs -I {} aws iam detach-role-policy --role-name $role --policy-arn {} 2>/dev/null || echo "⚠️ No policies to detach"
+              # Delete role
+              aws iam delete-role --role-name $role --region ${{ env.AWS_REGION }} || echo "⚠️ Role may have already been deleted"
+            fi
+          done
+          
+          # Clean up Secrets Manager secrets (if not in state)
+          for secret in "thrive-cluster-test-github-actions-credentials" "thrive-cluster-test-app-secrets"; do
+            if aws secretsmanager describe-secret --secret-id $secret --region ${{ env.AWS_REGION }} 2>/dev/null; then
+              echo "🗑️ Deleting secret: $secret"
+              aws secretsmanager delete-secret --secret-id $secret --region ${{ env.AWS_REGION }} --force-delete-without-recovery || echo "⚠️ Secret may have already been deleted"
+            fi
+          done
+          
+          # Clean up CloudWatch log groups (if not in state)
+          if aws logs describe-log-groups --log-group-name-prefix "/aws/eks/${{ env.CLUSTER_NAME }}" --region ${{ env.AWS_REGION }} --query 'logGroups[0].logGroupName' --output text 2>/dev/null | grep -q "${{ env.CLUSTER_NAME }}"; then
+            echo "🗑️ Deleting CloudWatch log groups..."
+            aws logs delete-log-group --log-group-name "/aws/eks/${{ env.CLUSTER_NAME }}/cluster" --region ${{ env.AWS_REGION }} || echo "⚠️ Log group may have already been deleted"
+          fi
+          
+          # Clean up OIDC providers (if not in state)
+          OIDC_PROVIDERS=$(aws iam list-open-id-connect-providers --region ${{ env.AWS_REGION }} --query 'OpenIDConnectProviderList[?contains(Arn, `thrive-cluster-test`)].Arn' --output text 2>/dev/null || echo "")
+          if [ -n "$OIDC_PROVIDERS" ]; then
+            for provider in $OIDC_PROVIDERS; do
+              echo "🗑️ Deleting OIDC provider: $provider"
+              aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "$provider" --region ${{ env.AWS_REGION }} || echo "⚠️ OIDC provider may have already been deleted"
+            done
+          fi
+          
+          echo "✅ Cleanup completed. You can now retry the deployment."
+
   deploy-application:
-    needs: [build-and-push, deploy-infrastructure]
+    needs: [build-and-push, deploy-infrastructure, cleanup-on-failure]
+    if: always() && needs.deploy-infrastructure.result == 'success'
     runs-on: ubuntu-latest
     environment: AWS_ACCESS_KEY_ID
     permissions:
