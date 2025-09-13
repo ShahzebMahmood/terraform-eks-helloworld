@@ -38,7 +38,7 @@ jobs:
         run: 'npm run lint || echo "No linting configured yet - TODO: add ESLint"'
 
   build-and-push:
-    needs: test
+    needs: [test, deploy-infrastructure]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     permissions:
