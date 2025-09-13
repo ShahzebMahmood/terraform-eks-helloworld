@@ -346,3 +346,4 @@ For issues and questions:
 - Enhanced security with AWS Secrets Manager
 - GitHub Actions now uses OIDC authentication
 - All credentials stored securely in AWS
+- Fixed repository name in IAM trust relationship
