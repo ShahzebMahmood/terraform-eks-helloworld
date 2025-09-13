@@ -88,6 +88,17 @@ resource "aws_iam_policy" "github_actions" {
           "sts:AssumeRole"
         ]
         Resource = var.eks_cluster_role_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:CreateRole",
+          "iam:AttachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:PassRole"
+        ]
+        Resource = "*"
       }
     ]
   })
