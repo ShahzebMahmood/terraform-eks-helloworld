@@ -263,9 +263,13 @@ jobs:
           echo "🏗️ Creating namespace and PodDisruptionBudget..."
           kubectl apply -f k8s/pod-security-policy.yaml
           
-          # Step 2: Wait for namespace to be ready
+          # Step 2: Wait for namespace to be ready (using a simple check)
           echo "⏳ Waiting for namespace to be ready..."
-          kubectl wait --for=condition=Active namespace/hello-world --timeout=60s
+          until kubectl get namespace hello-world >/dev/null 2>&1; do
+            echo "Waiting for namespace to be created..."
+            sleep 2
+          done
+          echo "✅ Namespace is ready"
           
           # Step 3: Apply all other Kubernetes manifests
           echo "🚀 Deploying application resources..."
