@@ -8,8 +8,7 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPO: ${{ secrets.ECR_REPO }}
-  CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+  SECRETS_MANAGER_SECRET_NAME: thrive-cluster-test-github-actions-credentials
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -41,7 +40,10 @@ jobs:
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && secrets.ECR_REPO != ''
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -49,9 +51,15 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get secrets from Secrets Manager
+        id: get-secrets
+        run: |
+          SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_MANAGER_SECRET_NAME }} --query SecretString --output text)
+          echo "ECR_REPO=$(echo $SECRETS | jq -r '.ECR_REPO')" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=$(echo $SECRETS | jq -r '.CLUSTER_NAME')" >> $GITHUB_OUTPUT
 
       - name: Login to ECR
         id: login-ecr
@@ -60,15 +68,15 @@ jobs:
       - name: Build, tag, and push image to ECR
         working-directory: ./app
         run: |
-          docker build -t $ECR_REPO:$IMAGE_TAG .
-          docker tag $ECR_REPO:$IMAGE_TAG $ECR_REPO:latest
-          docker push $ECR_REPO:$IMAGE_TAG
-          docker push $ECR_REPO:latest
+          docker build -t ${{ steps.get-secrets.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} .
+          docker tag ${{ steps.get-secrets.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} ${{ steps.get-secrets.outputs.ECR_REPO }}:latest
+          docker push ${{ steps.get-secrets.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.get-secrets.outputs.ECR_REPO }}:latest
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: $ECR_REPO:$IMAGE_TAG
+          image-ref: ${{ steps.get-secrets.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
           format: 'sarif'
           output: 'trivy-results.sarif'
 
@@ -81,7 +89,10 @@ jobs:
   deploy-infrastructure:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && secrets.AWS_ACCESS_KEY_ID != ''
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -89,8 +100,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
@@ -116,7 +126,10 @@ jobs:
   deploy-application:
     needs: [build-and-push, deploy-infrastructure]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && secrets.CLUSTER_NAME != ''
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -124,17 +137,23 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Get secrets from Secrets Manager
+        id: get-secrets
+        run: |
+          SECRETS=$(aws secretsmanager get-secret-value --secret-id ${{ env.SECRETS_MANAGER_SECRET_NAME }} --query SecretString --output text)
+          echo "ECR_REPO=$(echo $SECRETS | jq -r '.ECR_REPO')" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=$(echo $SECRETS | jq -r '.CLUSTER_NAME')" >> $GITHUB_OUTPUT
+
       - name: Update kubeconfig
-        run: aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION
+        run: aws eks update-kubeconfig --name ${{ steps.get-secrets.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
       - name: Deploy to EKS
         run: |
           # Update image tag in deployment
-          sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world:latest|$ECR_REPO:$IMAGE_TAG|g" k8s/deployment.yaml
+          sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world:latest|${{ steps.get-secrets.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}|g" k8s/deployment.yaml
           
           # Apply all Kubernetes manifests
           kubectl apply -f k8s/
