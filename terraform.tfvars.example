@@ -1,0 +1,10 @@
+# GitHub Configuration
+github_repo = "ShahzebMahmood/TF_AWS_Test"
+
+# AWS Credentials for GitHub Actions (will be stored in Secrets Manager)
+# These should be provided as environment variables in CI/CD
+# aws_access_key_id     = "your-access-key"
+# aws_secret_access_key = "your-secret-key"
+
+# Optional: Email for billing alerts
+# alert_email = "your-email@example.com"
