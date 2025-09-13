@@ -1,20 +1,9 @@
 # GitHub Actions Secrets Management
 # This module creates secrets in AWS Secrets Manager for GitHub Actions to use
 
-# OIDC Identity Provider for GitHub Actions
-resource "aws_iam_openid_connect_provider" "github" {
+# Use existing GitHub Actions OIDC Provider (global resource)
+data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
-
-  client_id_list = [
-    "sts.amazonaws.com",
-  ]
-
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"
-  ]
-
-  tags = var.tags
 }
 
 # IAM Role for GitHub Actions
@@ -27,7 +16,7 @@ resource "aws_iam_role" "github_actions" {
       {
         Effect = "Allow"
         Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
+          Federated = data.aws_iam_openid_connect_provider.github.arn
         }
         Action = "sts:AssumeRoleWithWebIdentity"
         Condition = {
