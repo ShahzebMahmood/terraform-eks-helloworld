@@ -15,8 +15,6 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 
 ## How It All Fits Together
 
-Here's the big picture of how everything connects:
-
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   GitHub Repo   │───▶│  GitHub Actions │───▶│   AWS ECR       │
@@ -72,7 +70,7 @@ Here's the big picture of how everything connects:
 ## Getting Started (Should Take About 5 Minutes)
 
 ### Important: Do Things in Order
-**Seriously, follow this order or things will break:**
+**follow this order or things will break as there are some dependcies that required:**
 1. **Setup Terraform Backend** (creates the S3 bucket and DynamoDB table)
 2. **CI/CD Pipeline** (deploys everything)
 3. **Destroy Infrastructure** (when you're done playing around)
