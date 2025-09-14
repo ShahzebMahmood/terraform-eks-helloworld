@@ -1,6 +1,6 @@
 # Hello-World DevOps Project
 
-A technical assessment project demonstrating a complete DevOps pipeline for deploying a web application on AWS. This showcases infrastructure as code, containerization, and cloud-native deployment using modern tools and best practices.
+A technicalproject demonstrating a complete DevOps pipeline for deploying a web application on AWS.
 
 ## What This Demonstrates
 
@@ -53,14 +53,14 @@ CloudWatch ← SNS Alerts ← Load Balancer
 
 This project implements both authentication approaches for AWS service access:
 
-### IRSA (Legacy)
+### IRSA
 - **Deployment**: `hello-world` (2 replicas)
 - Mature and stable since 2019
 - Wide compatibility with all AWS services
 - Manual OIDC setup with full control
 - More complex configuration
 
-### Pod Identity (Modern)
+### Pod Identity
 - **Deployment**: `hello-world-pod-identity` (1 replica)
 - AWS recommended approach
 - Better performance with faster token refresh
@@ -101,12 +101,24 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 
 ### Local Deployment
 ```bash
-git clone https://github.com/your-username/TF_AWS_Test-1.git
-cd TF_AWS_Test-1
+git clone https://github.com/your-username/terraform-eks-helloworld.git
+cd terraform-eks-helloworld
 
-terraform init
-terraform apply
+IMPORTANT
+Before you plan to spin up the Terraform resources manually, please run the action FIRST `Setup-backend.yaml` This will create the S3 bucket and dynamodb table for terraform statefile.
 
+```bash
+terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+```
+```bash
+terraform plan -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+```
+
+```bash
+terraform apply -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true" 
+```
+
+```bash
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 kubectl apply -f k8s/
 
@@ -150,19 +162,19 @@ kubectl get pods -n hello-world -l app=hello-world-pod-identity
 
 ## Cleanup
 
+I recommend running the action called `destroy.yaml` as that will tear down all resources created by the CI/CD action.
+
+Or manually:
+
+**Initialize backend:**
 ```bash
-terraform destroy
+terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=<REGION>" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
 ```
 
-## Technical Skills Demonstrated
-
-- **Infrastructure as Code** - Complete Terraform implementation with modular design
-- **Container Orchestration** - Kubernetes deployment with proper resource management
-- **CI/CD Automation** - GitHub Actions pipeline with security scanning
-- **Cloud Security** - IAM roles, secrets management, and network policies
-- **Monitoring & Observability** - CloudWatch integration with alerting
-- **Modern AWS Services** - EKS, Pod Identity, ECR, and ALB implementation
-- **Authentication Methods** - Both IRSA and Pod Identity for comprehensive understanding
+**Destroy resources:**
+```bash
+terraform destroy -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=<REGION>" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+```
 
 ## Resources
 
