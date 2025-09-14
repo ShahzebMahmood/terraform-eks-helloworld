@@ -214,13 +214,8 @@ jobs:
         run: |
           echo "🔧 Running terraform apply with S3 backend..."
           
-          # Run terraform apply (state will be automatically saved to S3)
-          terraform apply \
-            -var="github_repo=$GITHUB_REPO" \
-            -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=placeholder" \
-            -var="aws_secret_access_key=placeholder" \
-            -auto-approve
+          # Run terraform apply using the plan file (state will be automatically saved to S3)
+          terraform apply tfplan
           
           # Verify state is accessible
           echo "📋 Resources in state:"
