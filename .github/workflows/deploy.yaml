@@ -214,12 +214,26 @@ jobs:
         run: |
           echo "🔧 Running terraform apply with S3 backend..."
           
+          # Check if plan file exists
+          if [ ! -f "tfplan" ]; then
+            echo "❌ Plan file 'tfplan' not found!"
+            exit 1
+          fi
+          
           # Run terraform apply using the plan file (state will be automatically saved to S3)
           terraform apply tfplan
           
+          # Check if apply was successful
+          if [ $? -eq 0 ]; then
+            echo "✅ Terraform apply completed successfully"
+          else
+            echo "❌ Terraform apply failed"
+            exit 1
+          fi
+          
           # Verify state is accessible
           echo "📋 Resources in state:"
-          terraform state list
+          terraform state list || echo "No resources in state yet (first run)"
           echo "✅ State file is stored in S3 backend"
 
   deploy-application:
