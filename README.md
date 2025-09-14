@@ -100,25 +100,19 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 4. Get your app URL from the workflow output
 
 ### Local Deployment
+
+**For Local Testing (Simplified):**
 ```bash
 git clone https://github.com/your-username/terraform-eks-helloworld.git
 cd terraform-eks-helloworld
 
-IMPORTANT
-Before you plan to spin up the Terraform resources manually, please run the action FIRST `Setup-backend.yaml` This will create the S3 bucket and dynamodb table for terraform statefile.
+# Comment out the remote backend in backend.tf for local testing
+# Then run simple commands:
+terraform init
+terraform plan
+terraform apply
 
-```bash
-terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
-```
-```bash
-terraform plan -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
-```
-
-```bash
-terraform apply -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=us-east-1" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true" 
-```
-
-```bash
+# Deploy to EKS
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 kubectl apply -f k8s/
 
