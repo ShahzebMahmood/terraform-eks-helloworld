@@ -146,6 +146,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false
 
       - name: Terraform Format Check
         run: terraform fmt -check
@@ -181,29 +182,83 @@ jobs:
 
       - name: Terraform Plan
         run: |
+          echo "📋 Running terraform plan..."
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -lock-timeout=5m \
             -out=tfplan
+          
+          PLAN_EXIT_CODE=$?
+          echo "🔍 Terraform plan exit code: $PLAN_EXIT_CODE"
+          
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✅ Terraform plan completed successfully"
+            echo "📄 Plan file created:"
+            ls -la tfplan
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "📋 Terraform plan completed with changes"
+            echo "📄 Plan file created:"
+            ls -la tfplan
+          else
+            echo "❌ Terraform plan failed with exit code $PLAN_EXIT_CODE"
+            echo "💡 Common causes:"
+            echo "   - Invalid Terraform configuration"
+            echo "   - Missing required variables"
+            echo "   - AWS resource conflicts"
+            echo "   - Insufficient IAM permissions"
+            echo "   - State lock issues"
+            exit $PLAN_EXIT_CODE
+          fi
       - name: Terraform Apply
         id: terraform-apply
+        timeout-minutes: 30
         run: |
           echo "🔧 Running terraform apply with S3 backend..."
           
-          # Run terraform apply (state will be automatically saved to S3)
-          terraform apply \
-            -var="github_repo=$GITHUB_REPO" \
-            -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-            -auto-approve
+          # Check if plan file exists and show its details
+          if [ ! -f "tfplan" ]; then
+            echo "❌ Plan file 'tfplan' not found!"
+            echo "📁 Current directory contents:"
+            ls -la
+            echo "💡 This means the Terraform Plan step failed or didn't complete successfully"
+            echo "   Please check the Terraform Plan step logs above for errors"
+            exit 1
+          fi
+          
+          echo "📄 Plan file exists, size: $(ls -lh tfplan | awk '{print $5}')"
+          echo "🔍 Plan file details:"
+          ls -la tfplan
+          
+          # Run terraform apply using the plan file (state will be automatically saved to S3)
+          echo "🚀 Starting terraform apply..."
+          echo "📄 Plan file details before apply:"
+          ls -la tfplan
+          echo "🔍 Plan file size: $(ls -lh tfplan | awk '{print $5}')"
+          
+          # Run terraform apply and capture the exit code
+          terraform apply tfplan
+          APPLY_EXIT_CODE=$?
+          
+          echo "🔍 Terraform apply exit code: $APPLY_EXIT_CODE"
+          
+          if [ $APPLY_EXIT_CODE -eq 0 ]; then
+            echo "✅ Terraform apply completed successfully"
+          else
+            echo "❌ Terraform apply failed with exit code $APPLY_EXIT_CODE"
+            echo "💡 Common causes:"
+            echo "   - AWS resource limits exceeded"
+            echo "   - IAM permission issues"
+            echo "   - Resource conflicts or dependencies"
+            echo "   - Network timeout issues"
+            echo "📋 Check the logs above for specific error details"
+            exit $APPLY_EXIT_CODE
+          fi
           
           # Verify state is accessible
           echo "📋 Resources in state:"
-          terraform state list
-          echo "✅ State file is stored in S3 backend"
+          terraform state list || echo "⚠️ No resources in state yet (first run) or state access issue"
+          echo "✅ Terraform infrastructure deployment completed"
   deploy-application:
     needs: [build-and-push, deploy-infrastructure]
     if: always() && needs.deploy-infrastructure.result == 'success'
