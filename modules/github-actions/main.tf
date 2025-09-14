@@ -1,117 +1,19 @@
 # GitHub Actions Secrets Management
 # This module creates secrets in AWS Secrets Manager for GitHub Actions to use
 
-# Use existing GitHub Actions OIDC Provider (global resource)
+# Use existing GitHub Actions OIDC Provider (created by setup-backend workflow)
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# IAM Role for GitHub Actions
-resource "aws_iam_role" "github_actions" {
+# Use existing GitHub Actions IAM Role (created by setup-backend workflow)
+data "aws_iam_role" "github_actions" {
   name = "${var.project_name}-github-actions-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = data.aws_iam_openid_connect_provider.github.arn
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
-          }
-        }
-      }
-    ]
-  })
-
-  tags = var.tags
 }
 
-# IAM Policy for GitHub Actions
-resource "aws_iam_policy" "github_actions" {
-  name        = "${var.project_name}-github-actions-policy"
-  description = "Policy for GitHub Actions to access AWS resources"
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow" 
-        Action = [
-          "eks:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ec2:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:*"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "cloudwatch:*",
-          "logs:*",
-          "sns:*",
-          "budgets:*",
-          "sts:*"
-        ]
-        Resource = "*"
-      }
-    ]
-  })
-
-  tags = var.tags
-}
-
-# Attach policy to role
-resource "aws_iam_role_policy_attachment" "github_actions" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = aws_iam_policy.github_actions.arn
+# Use existing GitHub Actions IAM Policy (created by setup-backend workflow)
+data "aws_iam_policy" "github_actions" {
+  name = "${var.project_name}-github-actions-policy"
 }
 
 # Secrets Manager secret for GitHub Actions credentials
@@ -131,6 +33,6 @@ resource "aws_secretsmanager_secret_version" "github_credentials" {
     ECR_REPO                = var.ecr_repo_uri
     CLUSTER_NAME            = var.cluster_name
     GITHUB_REPO             = var.github_repo
-    GITHUB_ACTIONS_ROLE_ARN = aws_iam_role.github_actions.arn
+    GITHUB_ACTIONS_ROLE_ARN = data.aws_iam_role.github_actions.arn
   })
 }
