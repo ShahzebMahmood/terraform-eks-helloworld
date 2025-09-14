@@ -247,6 +247,28 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+      - name: Install Metrics Server (Required for HPA)
+        run: |
+          echo " Installing Metrics Server for HPA support..."
+          
+          # Check if Metrics Server is already installed
+          if kubectl get deployment metrics-server -n kube-system >/dev/null 2>&1; then
+            echo " Metrics Server already installed"
+          else
+            echo " Installing Metrics Server..."
+            kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+            
+            # Wait for Metrics Server to be ready
+            echo " Waiting for Metrics Server to be ready..."
+            kubectl wait --for=condition=available --timeout=300s deployment/metrics-server -n kube-system
+            
+            echo " Metrics Server installed and ready!"
+          fi
+          
+          # Verify Metrics Server is working
+          echo "🔍 Verifying Metrics Server..."
+          kubectl top nodes || echo "⚠️ Metrics Server not ready yet, but installation completed"
+
       - name: Deploy to EKS with Kustomize
         run: |
           # Debug: Show current directory and files
@@ -297,6 +319,18 @@ jobs:
           echo ""
           echo "📋 Deployment status:"
           kubectl describe deployment hello-world -n hello-world
+
+      - name: Verify HPA is working
+        run: |
+          echo "📊 Checking HPA status..."
+          echo "📋 HPA details:"
+          kubectl get hpa -n hello-world -o wide
+          echo ""
+          echo "📋 HPA description:"
+          kubectl describe hpa hello-world-hpa -n hello-world
+          echo ""
+          echo "📋 Pod metrics (if available):"
+          kubectl top pods -n hello-world || echo "⚠️ Metrics not available yet (this is normal for new deployments)"
           echo ""
           echo "📋 ReplicaSet status:"
           kubectl get rs -n hello-world
