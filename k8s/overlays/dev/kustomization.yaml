@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hello-world-dev
+
+# Base configuration
+bases:
+- ../../base
+
+# Environment-specific labels
+commonLabels:
+  environment: dev
+
+# Environment-specific annotations
+commonAnnotations:
+  environment: dev
+  deployed-by: kustomize
+
+# Environment-specific patches
+patches:
+# Override replica count for dev (fewer replicas)
+- target:
+    kind: Deployment
+    name: hello-world
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 1
+
+# Override HPA for dev (lower resource thresholds)
+- target:
+    kind: HorizontalPodAutoscaler
+    name: hello-world-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 1
+    - op: replace
+      path: /spec/maxReplicas
+      value: 3
+
+# Override ingress host for dev
+- target:
+    kind: Ingress
+    name: hello-world-ingress
+  patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: "hello-world-dev.example.com"

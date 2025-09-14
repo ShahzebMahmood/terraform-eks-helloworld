@@ -1,0 +1,52 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hello-world-base
+
+resources:
+- deployment.yaml
+- service.yaml
+- service-clusterip.yaml
+- ingress.yaml
+- hpa.yaml
+- network-policy.yaml
+- pod-security-policy.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app: hello-world
+  version: v1.0.0
+
+# Common annotations applied to all resources
+commonAnnotations:
+  managed-by: kustomize
+
+# Namespace for all resources
+namespace: hello-world
+
+# Image transformations
+images:
+- name: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world
+  newName: 442122590633.dkr.ecr.us-east-1.amazonaws.com/hello-world
+  newTag: latest
+
+# Patches for dynamic values
+patches:
+# Patch ServiceAccount with correct IAM role ARN
+- target:
+    kind: ServiceAccount
+    name: hello-world-sa
+  patch: |-
+    - op: replace
+      path: /metadata/annotations/eks.amazonaws.com~1role-arn
+      value: "arn:aws:iam::442122590633:role/hello-world-pod-role"
+
+# Patch Ingress with correct certificate ARN (when available)
+- target:
+    kind: Ingress
+    name: hello-world-ingress
+  patch: |-
+    - op: replace
+      path: /metadata/annotations/alb.ingress.kubernetes.io~1certificate-arn
+      value: "arn:aws:acm:us-east-1:442122590633:certificate/CERTIFICATE_ID"
