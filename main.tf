@@ -94,14 +94,12 @@ module "secrets" {
 # GitHub Actions Module (Secrets Management)
 # ---------------------------
 module "github_actions" {
-  source                = "./modules/github-actions"
-  project_name          = var.cluster_name
-  github_repo           = var.github_repo
-  aws_access_key_id     = "placeholder"
-  aws_secret_access_key = "placeholder"
-  aws_region            = var.aws_region
-  ecr_repo_uri          = module.ecr.hello_world_repo_uri
-  cluster_name          = module.eks.cluster_name
+  source       = "./modules/github-actions"
+  project_name = var.cluster_name
+  github_repo  = var.github_repo
+  aws_region   = var.aws_region
+  ecr_repo_uri = module.ecr.hello_world_repo_uri
+  cluster_name = module.eks.cluster_name
   eks_cluster_role_arn  = module.iam_basic.eks_cluster_role_arn
   tags                  = var.tags
 }

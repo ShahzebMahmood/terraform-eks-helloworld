@@ -8,17 +8,6 @@ variable "github_repo" {
   type        = string
 }
 
-variable "aws_access_key_id" {
-  description = "AWS Access Key ID for GitHub Actions"
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_access_key" {
-  description = "AWS Secret Access Key for GitHub Actions"
-  type        = string
-  sensitive   = true
-}
 
 variable "aws_region" {
   description = "AWS region"
