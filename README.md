@@ -1,232 +1,177 @@
 # Hello-World DevOps Project
 
-This is a real-world DevOps project I built to showcase how to deploy a scalable web application on AWS using modern tools and best practices. It's not just another tutorial it's a production-ready setup that you can actually use.
+A technical assessment project demonstrating a complete DevOps pipeline for deploying a web application on AWS. This showcases infrastructure as code, containerization, and cloud-native deployment using modern tools and best practices.
 
-## What This Project Does
+## What This Demonstrates
 
-I've put together a complete DevOps pipeline that covers everything from infrastructure to deployment:
+- **Terraform** - Infrastructure as code
+- **Amazon EKS** - Kubernetes in the cloud
+- **GitHub Actions** - Automated CI/CD
+- **CloudWatch** - Monitoring and alerting
+- **Docker** - Containerization
+- **AWS Secrets Manager** - Secure credential storage
+- **Application Load Balancer** - Traffic management
 
-- **Terraform** for managing AWS infrastructure as code
-- **Amazon EKS** for running Kubernetes in the cloud
-- **GitHub Actions** for automated CI/CD
-- **CloudWatch** for monitoring and alerting
-- **Security** built in from the ground up with IAM, Secrets Manager, and proper pod security
-- **Auto-scaling** works with HPA
-
-## How It All Fits Together
+## Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   GitHub Repo   │───▶│  GitHub Actions │───▶│   AWS ECR       │
-│                 │    │   CI/CD Pipeline│    │   Container     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
-                                ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   AWS EKS       │◀───│   Terraform     │───▶│   AWS VPC       │
-│   Kubernetes    │    │   Infrastructure│    │   Networking    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │
-         ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   CloudWatch    │    │   SNS Alerts    │    │   Load Balancer │
-│   Monitoring    │    │   Notifications │    │   (ALB)         │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+GitHub Repo → GitHub Actions → AWS ECR
+     ↓
+Terraform → AWS EKS ← AWS VPC
+     ↓
+CloudWatch ← SNS Alerts ← Load Balancer
 ```
 
-## What You Get
+## Implementation Details
 
-### Infrastructure That Actually Works
-- **VPC** with public subnets across 2 availability zones (because single points of failure are no best pratice for site realiabilty)
-- **EKS Cluster** with managed node groups (no more managing master nodes)
-- **Application Load Balancer** so your app is actually accessible from the internet (opted to go with classic)
-- **Auto-scaling** that responds to real traffic with HPA and metric server, however you can use promethues or open telemtry as well
+### Infrastructure
+- VPC with public subnets across 2 availability zones
+- EKS Cluster with managed node groups
+- Application Load Balancer for internet access
+- Auto-scaling with HPA and metrics server
 
-### A Real Application
-- **Node.js Hello-World** app (simple but functional)
-- **Dockerized** properly with multi-stage builds
-- **Kubernetes deployment** with 2 replicas for high availability
-- **Health checks** that actually work
+### Application
+- Node.js Hello-World app
+- Dockerized with multi-stage builds
+- Kubernetes deployment with 2 replicas
+- Health checks and proper resource limits
 
-### CI/CD That Doesn't Suck
-- **GitHub Actions** workflow that builds and deploys automatically
-- **Docker images** built and pushed to ECR
-- **Automatic deployment** to EKS when you push code
-- **Security scanning** with Trivy (because security matters)
+### CI/CD
+- GitHub Actions workflow for automated builds
+- Docker images pushed to ECR
+- Automatic deployment to EKS
+- Security scanning with Trivy
 
-### Monitoring You Can Actually Use
-- **CloudWatch dashboards** that show real metrics
-- **CPU and memory monitoring** so you know when things break
-- **Request rate tracking** to see if anyone's actually using your app
-- **Email alerts** via SNS when things go wrong
+### Security
+- IAM roles with least privilege
+- Secrets Manager for sensitive data
+- Pod Security Standards set to restricted
+- Network policies for micro-segmentation
+- Encrypted Terraform state in S3
 
-### Security Done Right
-- **IAM roles** with least privilege (no more admin access for everything)
-- **Secrets Manager** for sensitive data (no hardcoded secrets)
-- **Pod Security Standards** set to restricted (because default is too permissive)
-- **Network policies** for micro-segmentation
-- **Encrypted state** in S3 backend
-- **Dual Authentication**: Both IRSA (legacy) and Pod Identity (modern) for AWS service access
+## Authentication Methods
 
-## Authentication Options
+This project implements both authentication approaches for AWS service access:
 
-This project supports **two authentication methods** for pods to access AWS services. Both are deployed by default, giving you flexibility to choose:
+### IRSA (Legacy)
+- **Deployment**: `hello-world` (2 replicas)
+- Mature and stable since 2019
+- Wide compatibility with all AWS services
+- Manual OIDC setup with full control
+- More complex configuration
 
-### Option 1: IRSA (IAM Roles for Service Accounts) - Legacy
-**Deployment**: `hello-world` (2 replicas)
-- ✅ **Mature and stable** - Been around since 2019
-- ✅ **Wide compatibility** - Works with all AWS services
-- ✅ **Manual OIDC setup** - Full control over configuration
-- ⚠️ **More complex** - Requires manual OIDC provider management
-- ⚠️ **Slower token refresh** - Standard AWS token lifetime
-
-### Option 2: Pod Identity - Modern (Recommended)
-**Deployment**: `hello-world-pod-identity` (1 replica)
-- ✅ **AWS recommended** - Latest authentication method
-- ✅ **Better performance** - Faster token refresh
-- ✅ **Simpler setup** - EKS addon handles everything
-- ✅ **Enhanced security** - Shorter token lifetime
-- ✅ **Future-proof** - AWS's direction for pod authentication
-
-### Which Should You Use?
-
-| Use Case | Recommendation |
-|----------|---------------|
-| **New projects** | 🎯 **Pod Identity** - Modern, performant, AWS recommended |
-| **Existing IRSA setups** | 🔄 **Either** - Both work identically |
-| **Complex OIDC needs** | 🔧 **IRSA** - More control over configuration |
-| **Maximum performance** | ⚡ **Pod Identity** - Faster token refresh |
-| **Learning/Testing** | 🧪 **Both** - Compare and learn |
+### Pod Identity (Modern)
+- **Deployment**: `hello-world-pod-identity` (1 replica)
+- AWS recommended approach
+- Better performance with faster token refresh
+- Simpler setup via EKS addon
+- Enhanced security with shorter token lifetime
 
 ### Switching Between Methods
 
-**To use only Pod Identity:**
+**Use only Pod Identity:**
 ```bash
 kubectl scale deployment hello-world --replicas=0 -n hello-world
 kubectl scale deployment hello-world-pod-identity --replicas=2 -n hello-world
 ```
 
-**To use only IRSA:**
+**Use only IRSA:**
 ```bash
 kubectl scale deployment hello-world-pod-identity --replicas=0 -n hello-world
 kubectl scale deployment hello-world --replicas=2 -n hello-world
 ```
 
-## Quick Deployment
+## Quick Start
 
 ### Prerequisites
 - AWS Account (Free Tier works)
 - GitHub Account
-- AWS CLI configured (`aws configure`)
+- AWS CLI configured
+- Basic knowledge of Kubernetes and Terraform
 
-### Option 1: CI/CD Deployment (Recommended)
-1. **Fork this repository**
-2. **Add GitHub Secrets** (Settings → Secrets → Actions):
+### CI/CD Deployment (Recommended)
+1. Fork this repository
+2. Add GitHub Secrets (Settings → Secrets → Actions):
    - `AWS_ACCESS_KEY_ID`
    - `AWS_SECRET_ACCESS_KEY`
-3. **Run Workflows** (Actions tab):
+3. Run Workflows (Actions tab):
    - "Setup Terraform Backend" → Type "yes" → Run
    - "CI/CD Pipeline for Hello-World App (IRSA + Pod Identity)" → Run
-4. **Get your app URL** from the workflow output
+4. Get your app URL from the workflow output
 
-### Option 2: Local Deployment
+### Local Deployment
 ```bash
-# Clone and setup
 git clone https://github.com/your-username/TF_AWS_Test-1.git
 cd TF_AWS_Test-1
 
-# Deploy infrastructure
 terraform init
 terraform apply
 
-# Deploy app to EKS
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 kubectl apply -f k8s/
 
-# Get app URL
 kubectl get ingress hello-world-ingress -n hello-world
 ```
 
 ### Access Your App
-
-**Both deployments are available:**
-
 - **IRSA App**: `kubectl port-forward service/hello-world-service 8080:80 -n hello-world`
 - **Pod Identity App**: `kubectl port-forward service/hello-world-pod-identity-service 8081:80 -n hello-world`
-- **Load Balancer URL**: Check ingress output (routes to IRSA by default)
-- **Monitor**: `kubectl get hpa -n hello-world` (auto-scaling)
-- **Check both deployments**: `kubectl get pods -n hello-world`
+- **Load Balancer URL**: Check ingress output
+- **Monitor**: `kubectl get hpa -n hello-world`
 
-## Cleaning Up
+## Troubleshooting
 
-### Destroy Everything
+### Common Issues
+
+**EKS Cluster Not Ready:**
 ```bash
-# Destroy everything
-terraform destroy
-
-# Or use the cleanup script
-./scripts/cleanup-aws-resources.sh
+aws eks describe-cluster --name thrive-cluster-test
+kubectl get nodes
 ```
 
-## When Things Go Wrong
+**Pods Not Starting:**
+```bash
+kubectl get pods -n hello-world
+kubectl describe pod <pod-name> -n hello-world
+```
 
-### Common Issues and How to Fix Them
+**Authentication Issues:**
+```bash
+# Check Pod Identity addon
+aws eks describe-addon --cluster-name thrive-cluster-test --addon-name eks-pod-identity-agent
 
-1. **EKS Cluster Not Ready**
-   ```bash
-   aws eks describe-cluster --name thrive-cluster-test
-   kubectl get nodes
-   ```
+# Check service accounts
+kubectl get serviceaccounts -n hello-world
 
-2. **Pods Not Starting**
-   ```bash
-   kubectl get pods -n hello-world
-   kubectl describe pod <pod-name> -n hello-world
-   ```
+# Test both deployments
+kubectl get pods -n hello-world -l app=hello-world
+kubectl get pods -n hello-world -l app=hello-world-pod-identity
+```
 
-3. **Load Balancer Not Working**
-   ```bash
-   kubectl get ingress -n hello-world
-   kubectl get services -n hello-world
-   ```
+## Cleanup
 
-4. **Authentication Issues**
-   ```bash
-   # Check Pod Identity addon
-   aws eks describe-addon --cluster-name thrive-cluster-test --addon-name eks-pod-identity-agent
-   
-   # Check service accounts
-   kubectl get serviceaccounts -n hello-world
-   
-   # Check pod AWS environment
-   kubectl exec -it <pod-name> -n hello-world -- env | grep AWS
-   
-   # Test both deployments
-   kubectl get pods -n hello-world -l app=hello-world
-   kubectl get pods -n hello-world -l app=hello-world-pod-identity
-   ```
+```bash
+terraform destroy
+```
 
-## Learning Resources
+## Technical Skills Demonstrated
 
-### General
+- **Infrastructure as Code** - Complete Terraform implementation with modular design
+- **Container Orchestration** - Kubernetes deployment with proper resource management
+- **CI/CD Automation** - GitHub Actions pipeline with security scanning
+- **Cloud Security** - IAM roles, secrets management, and network policies
+- **Monitoring & Observability** - CloudWatch integration with alerting
+- **Modern AWS Services** - EKS, Pod Identity, ECR, and ALB implementation
+- **Authentication Methods** - Both IRSA and Pod Identity for comprehensive understanding
+
+## Resources
+
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest)
 - [Amazon EKS Documentation](https://docs.aws.amazon.com/eks/)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [GitHub Actions](https://docs.github.com/en/actions)
-
-### Authentication Methods
-- [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) - Modern approach
-- [IRSA (IAM Roles for Service Accounts)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) - Legacy approach
-- [Pod Identity vs IRSA Comparison](https://aws.amazon.com/blogs/containers/introducing-eks-pod-identity/) - AWS blog post
-
-## Need Help?
-
-If you run into issues:
-1. Check the troubleshooting section above
-2. Look at the GitHub Actions logs
-3. Check CloudWatch logs
-4. Open an issue on GitHub
+- [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
+- [IRSA Documentation](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+- [Pod Identity vs IRSA Comparison](https://aws.amazon.com/blogs/containers/introducing-eks-pod-identity/)
 
 ---
 
-**Happy Deploying!**
+**Technical Assessment Complete**
