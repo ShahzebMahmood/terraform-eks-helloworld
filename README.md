@@ -100,11 +100,32 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 4. Get your app URL from the workflow output
 
 ### Local Deployment
-
 **For Local Testing**
 ```bash
 git clone https://github.com/your-username/terraform-eks-helloworld.git
 cd terraform-eks-helloworld
+
+# This is need as the action use oidc provider, otherwise comment out the block oidc provider for github to ignore this step
+# Create OIDC provider manually before running Terraform
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+  --tags Key=Name,Value="GitHub Actions OIDC" Key=Environment,Value=dev
+
+# Update kustomization.yaml with your AWS account details
+# Replace these placeholders in k8s/base/kustomization.yaml:
+# - ACCOUNT_ID → Your AWS Account ID
+# - REGION → Your AWS Region (e.g., us-east-1)
+# - CERTIFICATE_ID → Your ACM certificate ID (optional for testing)
+
+# Get your AWS Account ID and update kustomization.yaml
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+AWS_REGION="us-east-1"
+
+# Update kustomization.yaml placeholders
+sed -i "s|ACCOUNT_ID|$AWS_ACCOUNT_ID|g" k8s/base/kustomization.yaml
+sed -i "s|REGION|$AWS_REGION|g" k8s/base/kustomization.yaml
 
 # Comment out the remote backend in backend.tf for local testing
 # Then run simple commands:
@@ -120,7 +141,7 @@ docker push $(aws sts get-caller-identity --query Account --output text).dkr.ecr
 
 # Deploy to EKS
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
-kubectl apply -f k8s/
+kubectl apply -k k8s/base/
 
 kubectl get ingress hello-world-ingress -n hello-world
 ```
