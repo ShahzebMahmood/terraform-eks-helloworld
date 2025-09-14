@@ -72,7 +72,7 @@ jobs:
             aws s3api put-public-access-block --bucket $BUCKET_NAME --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
             
             # Add tags to the bucket
-            aws s3api put-bucket-tagging --bucket $BUCKET_NAME --tagging 'TagSet=[{Key=Name Value=Terraform State Bucket},{Key=Environment,Value=dev},{Key=Project,Value=Thrive_Cluster_Test},{Key=Purpose,Value=Terraform State Storage}]'
+            aws s3api put-bucket-tagging --bucket $BUCKET_NAME --tagging 'TagSet=[{Key=Name,Value=Terraform State Bucket},{Key=Environment,Value=dev},{Key=Project,Value=Thrive_Cluster_Test},{Key=Purpose,Value=Terraform State Storage}]'
             
             echo "✅ S3 bucket '$BUCKET_NAME' created successfully"
           fi
