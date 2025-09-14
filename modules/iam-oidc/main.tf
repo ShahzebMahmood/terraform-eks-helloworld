@@ -12,7 +12,7 @@ resource "aws_iam_role" "hello_world_pod" {
       Action = "sts:AssumeRoleWithWebIdentity"
       Condition = {
         StringEquals = {
-          "${replace(var.eks_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:default:hello-world-sa"
+          "${replace(var.eks_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:hello-world:hello-world-sa"
         }
       }
     }]

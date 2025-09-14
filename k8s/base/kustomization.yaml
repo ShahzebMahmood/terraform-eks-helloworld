@@ -9,9 +9,12 @@ resources:
 - deployment-pod-identity.yaml
 - service.yaml
 - service-clusterip.yaml
+- service-pod-identity.yaml
 - ingress.yaml
 - hpa.yaml
+- hpa-pod-identity.yaml
 - network-policy.yaml
+- network-policy-pod-identity.yaml
 - pod-security-policy.yaml
 
 # Common labels applied to all resources

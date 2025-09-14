@@ -24,19 +24,19 @@ env:
 jobs:
   setup-backend:
     runs-on: ubuntu-latest
-    environment: AWS_ACCESS_KEY_ID
+    environment: AWS_OIDC
     if: github.event.inputs.confirm_setup == 'yes'
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials  
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
 
       - name: Verify AWS credentials
         run: |
@@ -102,7 +102,7 @@ jobs:
             aws dynamodb wait table-exists --table-name $TABLE_NAME --region ${{ env.AWS_REGION }}
             
             # Add tags to the table
-            aws dynamodb tag-resource --resource-arn "arn:aws:dynamodb:${{ env.AWS_REGION }}:$(aws sts get-caller-identity --query Account --output text):table/$TABLE_NAME" --tags "Key=Name,Value=Terraform State Locks Key=Environment,Value=dev Key=Project,Value=Thrive_Cluster_Test Key=Purpose,Value=Terraform State Locking"
+            aws dynamodb tag-resource --resource-arn "arn:aws:dynamodb:${{ env.AWS_REGION }}:$(aws sts get-caller-identity --query Account --output text):table/$TABLE_NAME" --tags Key=Name,Value="Terraform State Locks",Key=Environment,Value=dev,Key=Project,Value=Thrive_Cluster_Test,Key=Purpose,Value="Terraform State Locking"
             
             echo " DynamoDB table '$TABLE_NAME' created successfully"
           fi

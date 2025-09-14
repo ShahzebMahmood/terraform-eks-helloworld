@@ -15,7 +15,7 @@ env:
 jobs:
   destroy-infrastructure:
     runs-on: ubuntu-latest
-    environment: AWS_ACCESS_KEY_ID
+    environment: AWS_OIDC
     permissions:
       id-token: write
       contents: read
@@ -34,9 +34,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
 
       - name: Set GitHub repo environment variable
         run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
@@ -104,13 +104,13 @@ jobs:
           echo "🔍 Checking for existing Terraform state locks..."
           
           # Try to run terraform plan to check for locks
-          if ! terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_account_id=$AWS_ACCOUNT_ID" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -q "Error acquiring the state lock"; then
+          if ! terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_account_id=$AWS_ACCOUNT_ID" -out=/dev/null 2>&1 | grep -q "Error acquiring the state lock"; then
             echo "✅ No state lock detected"
           else
             echo "⚠️ State lock detected, attempting to force unlock..."
             
             # Extract lock ID from the error message
-            LOCK_ID=$(terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_account_id=$AWS_ACCOUNT_ID" -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" -out=/dev/null 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' | xargs || echo "")
+            LOCK_ID=$(terraform plan -var="github_repo=$GITHUB_REPO" -var="aws_account_id=$AWS_ACCOUNT_ID" -out=/dev/null 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' | xargs || echo "")
             
             if [ -n "$LOCK_ID" ]; then
               echo "🔓 Force unlocking state with ID: '$LOCK_ID'"
@@ -133,8 +133,6 @@ jobs:
           if timeout 1800 terraform destroy \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve; then
             echo "✅ Infrastructure destroyed successfully!"
           else
@@ -144,8 +142,6 @@ jobs:
             if terraform destroy \
               -var="github_repo=$GITHUB_REPO" \
               -var="aws_account_id=$AWS_ACCOUNT_ID" \
-              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
               -auto-approve 2>&1 | grep -q "Error acquiring the state lock"; then
               
               echo "🔓 State lock detected, attempting force unlock and retry..."
@@ -154,8 +150,6 @@ jobs:
               LOCK_ID=$(terraform destroy \
                 -var="github_repo=$GITHUB_REPO" \
                 -var="aws_account_id=$AWS_ACCOUNT_ID" \
-                -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-                -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
                 -auto-approve 2>&1 | grep -o 'ID:\s*[a-f0-9-]*' | sed 's/ID:\s*//' | xargs || echo "")
               
               if [ -n "$LOCK_ID" ]; then
@@ -167,8 +161,6 @@ jobs:
                 terraform destroy \
                   -var="github_repo=$GITHUB_REPO" \
                   -var="aws_account_id=$AWS_ACCOUNT_ID" \
-                  -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-                  -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
                   -auto-approve
                 echo "✅ Infrastructure destroyed successfully after unlock!"
               else

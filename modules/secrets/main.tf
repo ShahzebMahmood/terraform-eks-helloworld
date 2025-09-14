@@ -2,7 +2,7 @@
 resource "aws_secretsmanager_secret" "app_secrets" {
   name                    = "${var.project_name}-app-secrets"
   description             = "Application secrets for hello-world app"
-recovery_window_in_days   = 0
+  recovery_window_in_days = 0
 
   tags = var.tags
 }

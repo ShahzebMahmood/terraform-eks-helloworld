@@ -24,7 +24,9 @@ resource "aws_subnet" "public" {
   availability_zone       = var.availability_zones[count.index]
 
   tags = merge(var.tags, {
-    Name = "public-subnet-${count.index + 1}"
+    Name                              = "public-subnet-${count.index + 1}"
+    "kubernetes.io/role/elb"          = "1"
+    "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   })
 }
 
