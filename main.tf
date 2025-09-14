@@ -6,7 +6,6 @@ data "aws_region" "current" {}
 
 # ---------------------------
 # VPC Module
-# Started with basic VPC setup, learned about subnets the hard way
 # ---------------------------
 module "vpc" {
   source               = "./modules/vpc"
@@ -18,7 +17,6 @@ module "vpc" {
 
 # ---------------------------
 # IAM Module (Basic Cluster & Node Roles - No OIDC dependencies)
-# This took forever to get right - IAM is confusing!
 # ---------------------------
 module "iam_basic" {
   source            = "./modules/iam-basic"
@@ -35,7 +33,6 @@ module "ecr" {
 
 # ---------------------------
 # EKS Module
-# Finally got this working after 3 attempts!
 # ---------------------------
 module "eks" {
   source           = "./modules/eks"
