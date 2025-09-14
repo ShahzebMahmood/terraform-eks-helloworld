@@ -196,6 +196,8 @@ jobs:
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_access_key_id=placeholder" \
+            -var="aws_secret_access_key=placeholder" \
             -out=tfplan
 
       - name: Terraform Apply
@@ -207,6 +209,8 @@ jobs:
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_access_key_id=placeholder" \
+            -var="aws_secret_access_key=placeholder" \
             -auto-approve
           
           # Verify state is accessible
