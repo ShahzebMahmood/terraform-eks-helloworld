@@ -101,7 +101,7 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 
 ### Local Deployment
 
-**For Local Testing (Simplified):**
+**For Local Testing**
 ```bash
 git clone https://github.com/your-username/terraform-eks-helloworld.git
 cd terraform-eks-helloworld
@@ -118,7 +118,6 @@ kubectl apply -f k8s/
 
 kubectl get ingress hello-world-ingress -n hello-world
 ```
-
 ### Access Your App
 - **IRSA App**: `kubectl port-forward service/hello-world-service 8080:80 -n hello-world`
 - **Pod Identity App**: `kubectl port-forward service/hello-world-pod-identity-service 8081:80 -n hello-world`
