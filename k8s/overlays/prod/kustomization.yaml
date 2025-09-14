@@ -1,0 +1,68 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: hello-world-prod
+
+# Base configuration
+bases:
+- ../../base
+
+# Production-specific labels
+commonLabels:
+  environment: prod
+
+# Production-specific annotations
+commonAnnotations:
+  environment: prod
+  deployed-by: kustomize
+
+# Production-specific patches
+patches:
+# Override replica count for prod (more replicas for HA)
+- target:
+    kind: Deployment
+    name: hello-world
+  patch: |-
+    - op: replace
+      path: /spec/replicas
+      value: 3
+
+# Override HPA for prod (higher resource thresholds)
+- target:
+    kind: HorizontalPodAutoscaler
+    name: hello-world-hpa
+  patch: |-
+    - op: replace
+      path: /spec/minReplicas
+      value: 3
+    - op: replace
+      path: /spec/maxReplicas
+      value: 10
+
+# Override ingress host for prod
+- target:
+    kind: Ingress
+    name: hello-world-ingress
+  patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: "hello-world.example.com"
+
+# Production resource limits (higher)
+- target:
+    kind: Deployment
+    name: hello-world
+  patch: |-
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: "128Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: "100m"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: "256Mi"
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: "200m"

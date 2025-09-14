@@ -247,64 +247,38 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Deploy to EKS
+      - name: Deploy to EKS with Kustomize
         run: |
           # Debug: Show current directory and files
           echo "Current directory: $(pwd)"
           echo "Files in k8s directory:"
           ls -la k8s/
+          echo "Files in k8s/base directory:"
+          ls -la k8s/base/
           
-          # Update placeholders in deployment.yaml
-          echo "🔧 Updating placeholders in deployment.yaml..."
+          # Update Kustomize configuration with dynamic values
+          echo "🔧 Updating Kustomize configuration with dynamic values..."
           
-          # First, replace the IAM role ARN placeholder (more specific pattern)
-          sed -i "s|arn:aws:iam::ACCOUNT_ID:role/hello-world-pod-role|arn:aws:iam::${{ steps.get-ecr.outputs.AWS_ACCOUNT_ID }}:role/hello-world-pod-role|g" k8s/deployment.yaml
+          # Update the base kustomization.yaml with correct values
+          sed -i "s|arn:aws:iam::442122590633:role/hello-world-pod-role|arn:aws:iam::${{ steps.get-ecr.outputs.AWS_ACCOUNT_ID }}:role/hello-world-pod-role|g" k8s/base/kustomization.yaml
+          sed -i "s|442122590633.dkr.ecr.us-east-1.amazonaws.com/hello-world|${{ steps.get-ecr.outputs.ECR_REPO }}|g" k8s/base/kustomization.yaml
+          sed -i "s|:latest|:${{ env.IMAGE_TAG }}|g" k8s/base/kustomization.yaml
           
-          # Then, replace the ECR image URI placeholder
-          sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world:latest|${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}|g" k8s/deployment.yaml
+          # Show the updated kustomization file for debugging
+          echo "📋 Updated kustomization.yaml:"
+          cat k8s/base/kustomization.yaml
           
-          # Show the updated deployment file for debugging
-          echo "📋 Updated deployment.yaml:"
-          cat k8s/deployment.yaml
+          # Build and preview the Kustomize output
+          echo "🔍 Building Kustomize configuration..."
+          kubectl kustomize k8s/base > kustomize-output.yaml
+          echo "📋 Generated Kustomize output:"
+          cat kustomize-output.yaml
           
-          # Step 1: Create namespace first
-          echo "🏗️ Creating namespace and PodDisruptionBudget..."
-          kubectl apply -f k8s/pod-security-policy.yaml
+          # Deploy using Kustomize
+          echo "🚀 Deploying application with Kustomize..."
+          kubectl apply -k k8s/base
           
-          # Step 2: Wait for namespace to be ready (using a simple check)
-          echo "⏳ Waiting for namespace to be ready..."
-          until kubectl get namespace hello-world >/dev/null 2>&1; do
-            echo "Waiting for namespace to be created..."
-            sleep 2
-          done
-          echo "✅ Namespace is ready"
-          
-          # Step 3: Apply all other Kubernetes manifests with error checking
-          echo "🚀 Deploying application resources..."
-          
-          echo "📦 Applying deployment..."
-          if kubectl apply -f k8s/deployment.yaml; then
-            echo "✅ Deployment applied successfully"
-          else
-            echo "❌ Deployment failed - showing detailed error:"
-            kubectl apply -f k8s/deployment.yaml --dry-run=client -o yaml
-            exit 1
-          fi
-          
-          echo "🔗 Applying services..."
-          kubectl apply -f k8s/service.yaml || { echo "❌ Service failed"; exit 1; }
-          kubectl apply -f k8s/service-clusterip.yaml || { echo "❌ ClusterIP service failed"; exit 1; }
-          
-          echo "🌐 Applying ingress..."
-          kubectl apply -f k8s/ingress.yaml || { echo "❌ Ingress failed"; exit 1; }
-          
-          echo "📈 Applying HPA..."
-          kubectl apply -f k8s/hpa.yaml || { echo "❌ HPA failed"; exit 1; }
-          
-          echo "🔒 Applying network policy..."
-          kubectl apply -f k8s/network-policy.yaml || { echo "❌ Network policy failed"; exit 1; }
-          
-          echo "✅ All Kubernetes resources applied successfully!"
+          echo "✅ All Kubernetes resources applied successfully with Kustomize!"
 
       - name: Verify deployment exists
         run: |
