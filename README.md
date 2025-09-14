@@ -185,5 +185,3 @@ terraform destroy -backend-config="bucket=thrive-cluster-test-terraform-state" -
 - [Pod Identity vs IRSA Comparison](https://aws.amazon.com/blogs/containers/introducing-eks-pod-identity/)
 
 ---
-
-**Technical Assessment Complete**
