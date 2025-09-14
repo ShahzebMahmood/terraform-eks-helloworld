@@ -145,14 +145,14 @@ jobs:
             echo "📦 Creating GitHub Actions IAM role..."
             
             # Create trust policy for OIDC
-            cat > trust-policy.json << 'EOF'
+            cat > trust-policy.json << EOF
           {
             "Version": "2012-10-17",
             "Statement": [
               {
                 "Effect": "Allow",
                 "Principal": {
-                  "Federated": "'$PROVIDER_ARN'"
+                  "Federated": "$PROVIDER_ARN"
                 },
                 "Action": "sts:AssumeRoleWithWebIdentity",
                 "Condition": {
