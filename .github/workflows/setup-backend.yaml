@@ -131,6 +131,127 @@ jobs:
             echo " Provider ARN: $PROVIDER_ARN"
           fi
 
+      - name: Create GitHub Actions IAM Role
+        run: |
+          echo "🔧 Creating GitHub Actions IAM role for OIDC authentication..."
+          
+          ROLE_NAME="thrive-cluster-test-github-actions-role"
+          PROVIDER_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/token.actions.githubusercontent.com"
+          
+          # Check if role already exists
+          if aws iam get-role --role-name $ROLE_NAME >/dev/null 2>&1; then
+            echo " GitHub Actions IAM role already exists"
+          else
+            echo "📦 Creating GitHub Actions IAM role..."
+            
+            # Create trust policy for OIDC
+            cat > trust-policy.json << 'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Federated": "'$PROVIDER_ARN'"
+                },
+                "Action": "sts:AssumeRoleWithWebIdentity",
+                "Condition": {
+                  "StringEquals": {
+                    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+                  },
+                  "StringLike": {
+                    "token.actions.githubusercontent.com:sub": "repo:${{ github.repository }}:*"
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+            
+            # Create the role
+            aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust-policy.json --tags Key=Name,Value="GitHub Actions Role" Key=Environment,Value=dev Key=Project,Value=Thrive_Cluster_Test Key=Purpose,Value="GitHub Actions OIDC Authentication"
+            
+            # Create and attach policy for GitHub Actions
+            cat > github-actions-policy.json << 'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "ecr:GetAuthorizationToken",
+                  "ecr:BatchCheckLayerAvailability",
+                  "ecr:GetDownloadUrlForLayer",
+                  "ecr:BatchGetImage",
+                  "ecr:PutImage",
+                  "ecr:InitiateLayerUpload",
+                  "ecr:UploadLayerPart",
+                  "ecr:CompleteLayerUpload",
+                  "eks:DescribeCluster",
+                  "eks:ListClusters",
+                  "eks:UpdateClusterConfig",
+                  "eks:CreateCluster",
+                  "eks:DeleteCluster",
+                  "eks:TagResource",
+                  "eks:UntagResource",
+                  "eks:ListTagsForResource",
+                  "eks:CreateNodegroup",
+                  "eks:DeleteNodegroup",
+                  "eks:DescribeNodegroup",
+                  "eks:ListNodegroups",
+                  "eks:UpdateNodegroupConfig",
+                  "eks:UpdateNodegroupVersion",
+                  "iam:CreateRole",
+                  "iam:DeleteRole",
+                  "iam:GetRole",
+                  "iam:PassRole",
+                  "iam:AttachRolePolicy",
+                  "iam:DetachRolePolicy",
+                  "iam:ListAttachedRolePolicies",
+                  "iam:CreatePolicy",
+                  "iam:DeletePolicy",
+                  "iam:GetPolicy",
+                  "iam:GetPolicyVersion",
+                  "iam:ListPolicyVersions",
+                  "iam:CreatePolicyVersion",
+                  "iam:DeletePolicyVersion",
+                  "iam:TagRole",
+                  "iam:UntagRole",
+                  "iam:ListRoleTags",
+                  "iam:TagPolicy",
+                  "iam:UntagPolicy",
+                  "iam:ListPolicyTags",
+                  "s3:*",
+                  "dynamodb:*",
+                  "secretsmanager:*",
+                  "kms:*",
+                  "ec2:*",
+                  "vpc:*",
+                  "cloudwatch:*",
+                  "logs:*",
+                  "acm:*",
+                  "route53:*",
+                  "sts:GetCallerIdentity"
+                ],
+                "Resource": "*"
+              }
+            ]
+          }
+          EOF
+            
+            # Create the policy
+            aws iam create-policy --policy-name "thrive-cluster-test-github-actions-policy" --policy-document file://github-actions-policy.json --description "Policy for GitHub Actions to access AWS resources"
+            
+            # Attach policy to role
+            aws iam attach-role-policy --role-name $ROLE_NAME --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/thrive-cluster-test-github-actions-policy"
+            
+            # Clean up temporary files
+            rm -f trust-policy.json github-actions-policy.json
+            
+            echo " GitHub Actions IAM role created successfully"
+            echo " Role ARN: arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):role/$ROLE_NAME"
+          fi
+
       - name: Verify Backend Setup
         run: |
           echo "🔍 Verifying backend setup..."
@@ -160,12 +281,21 @@ jobs:
             exit 1
           fi
           
+          # Check IAM role
+          if aws iam get-role --role-name "thrive-cluster-test-github-actions-role" >/dev/null 2>&1; then
+            echo " GitHub Actions IAM role is accessible"
+          else
+            echo " GitHub Actions IAM role is not accessible"
+            exit 1
+          fi
+          
           echo ""
           echo " Backend setup completed successfully!"
           echo "=========================================="
           echo " S3 bucket: thrive-cluster-test-terraform-state"
           echo " DynamoDB table: thrive-cluster-test-terraform-locks"
           echo " GitHub OIDC provider: token.actions.githubusercontent.com"
+          echo " GitHub Actions IAM role: thrive-cluster-test-github-actions-role"
           echo " Region: ${{ env.AWS_REGION }}"
           echo ""
           echo " Next steps:"

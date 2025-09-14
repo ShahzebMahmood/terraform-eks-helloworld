@@ -92,13 +92,15 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 ### CI/CD Deployment (Recommended)
 1. Fork this repository
 2. Add GitHub Secrets (Settings → Secrets → Actions):
+   - `AWS_ACCESS_KEY_ID` (for initial setup)
+   - `AWS_SECRET_ACCESS_KEY` (for initial setup)
    - `AWS_ACCOUNT_ID` (your AWS account ID)
 3. Run Workflows (Actions tab):
-   - "Setup Terraform Backend" → Type "yes" → Run (creates OIDC provider)
+   - "Setup Terraform Backend" → Type "yes" → Run (creates OIDC provider + IAM role)
    - "CI/CD Pipeline for Hello-World App (OIDC + IRSA + Pod Identity)" → Run
 4. Get your app URL from the workflow output
 
-**Note**: This workflow uses OIDC authentication for enhanced security. No AWS access keys needed!
+**Note**: Setup-backend uses access keys (one-time), deploy uses OIDC (ongoing).
 
 ### Local Deployment
 **For Local Testing**
