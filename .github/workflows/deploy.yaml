@@ -73,10 +73,10 @@ jobs:
         run: |
           echo "🔍 Checking if image already exists in ECR..."
           if aws ecr describe-images --repository-name ${{ env.ECR_REPOSITORY }} --image-ids imageTag=${{ env.IMAGE_TAG }} --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
-            echo "✅ Image with tag ${{ env.IMAGE_TAG }} already exists in ECR"
+            echo "Image with tag ${{ env.IMAGE_TAG }} already exists in ECR"
             echo "IMAGE_EXISTS=true" >> $GITHUB_OUTPUT
           else
-            echo "📦 Image with tag ${{ env.IMAGE_TAG }} does not exist, will build and push"
+            echo "Image with tag ${{ env.IMAGE_TAG }} does not exist, will build and push"
             echo "IMAGE_EXISTS=false" >> $GITHUB_OUTPUT
           fi
 
@@ -88,10 +88,10 @@ jobs:
           docker build -t ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} .
           docker tag ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
           
-          echo "📤 Pushing image to ECR..."
+          echo "Pushing image to ECR..."
           docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
           docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
-          echo "✅ Image pushed successfully!"
+          echo "Image pushed successfully!"
 
       - name: Skip build and push
         if: steps.check-image.outputs.IMAGE_EXISTS == 'true'

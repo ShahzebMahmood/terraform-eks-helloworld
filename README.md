@@ -167,12 +167,12 @@ Or manually:
 
 **Initialize backend:**
 ```bash
-terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=<REGION>" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+terraform init
 ```
 
 **Destroy resources:**
 ```bash
-terraform destroy -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=<REGION>" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+terraform destroy
 ```
 
 ## Resources

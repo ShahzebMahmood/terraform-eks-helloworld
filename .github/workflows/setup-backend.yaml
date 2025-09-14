@@ -107,6 +107,30 @@ jobs:
             echo "✅ DynamoDB table '$TABLE_NAME' created successfully"
           fi
 
+      - name: Create GitHub OIDC Provider
+        run: |
+          echo "🔧 Creating GitHub OIDC provider for secure authentication..."
+          
+          PROVIDER_URL="https://token.actions.githubusercontent.com"
+          PROVIDER_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/token.actions.githubusercontent.com"
+          
+          # Check if OIDC provider already exists
+          if aws iam get-open-id-connect-provider --open-id-connect-provider-arn $PROVIDER_ARN >/dev/null 2>&1; then
+            echo "✅ GitHub OIDC provider already exists"
+          else
+            echo "📦 Creating GitHub OIDC provider..."
+            
+            # Create the OIDC provider
+            aws iam create-open-id-connect-provider \
+              --url $PROVIDER_URL \
+              --client-id-list sts.amazonaws.com \
+              --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1 \
+              --tags Key=Name,Value=GitHub Actions OIDC Key=Environment,Value=dev Key=Project,Value=Thrive_Cluster_Test Key=Purpose,Value=GitHub Actions Authentication
+            
+            echo "✅ GitHub OIDC provider created successfully"
+            echo "🔗 Provider ARN: $PROVIDER_ARN"
+          fi
+
       - name: Verify Backend Setup
         run: |
           echo "🔍 Verifying backend setup..."
@@ -127,11 +151,21 @@ jobs:
             exit 1
           fi
           
+          # Check OIDC provider
+          PROVIDER_ARN="arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/token.actions.githubusercontent.com"
+          if aws iam get-open-id-connect-provider --open-id-connect-provider-arn $PROVIDER_ARN >/dev/null 2>&1; then
+            echo "✅ GitHub OIDC provider is accessible"
+          else
+            echo "❌ GitHub OIDC provider is not accessible"
+            exit 1
+          fi
+          
           echo ""
           echo "🎉 Backend setup completed successfully!"
           echo "=========================================="
           echo "✅ S3 bucket: thrive-cluster-test-terraform-state"
           echo "✅ DynamoDB table: thrive-cluster-test-terraform-locks"
+          echo "✅ GitHub OIDC provider: token.actions.githubusercontent.com"
           echo "✅ Region: ${{ env.AWS_REGION }}"
           echo ""
           echo "💡 Next steps:"
@@ -139,14 +173,17 @@ jobs:
           echo "   2. Terraform will now use the S3 backend automatically"
           echo "   3. State will be automatically saved and locked"
           echo "   4. You can now safely run terraform commands locally"
+          echo "   5. GitHub Actions can use OIDC for secure authentication"
           echo ""
           echo "🔒 Security features enabled:"
           echo "   - State file encryption in S3"
           echo "   - State locking with DynamoDB"
           echo "   - Public access blocked on S3 bucket"
           echo "   - Versioning enabled on S3 bucket"
+          echo "   - GitHub OIDC provider for secure CI/CD authentication"
           echo ""
           echo "💰 Cost optimization:"
           echo "   - DynamoDB uses PAY_PER_REQUEST billing"
           echo "   - Stays within AWS Free Tier limits"
           echo "   - Typical cost: < $1/month for state locking"
+          echo "   - OIDC provider is free to use"

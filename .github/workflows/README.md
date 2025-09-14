@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-This repository contains GitHub Actions workflows for deploying and managing the Hello-World DevOps project.
+This repository contains GitHub Actions workflows for deploying and managing the Hello-World project.
 
 ## 📋 Available Workflows
 
@@ -73,7 +73,7 @@ This repository contains GitHub Actions workflows for deploying and managing the
 
 3. **Deploy the Application**:
    - Run the "CI/CD Pipeline for Hello-World App" workflow
-   - Wait for deployment to complete
+   - Wait for deployment to complete, this can take about 10-15 minutes
 
 4. **Access Your Application**:
    - Check the workflow logs for the load balancer URL
@@ -130,5 +130,3 @@ Destroy Infrastructure (can run independently)
 - **Monitor costs** in AWS Billing dashboard
 
 ---
-
-**Happy Deploying! 🚀**
