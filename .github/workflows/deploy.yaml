@@ -205,8 +205,6 @@
             terraform plan \
               -var="github_repo=$GITHUB_REPO" \
               -var="aws_account_id=$AWS_ACCOUNT_ID" \
-              -var="aws_access_key_id=placeholder" \
-              -var="aws_secret_access_key=placeholder" \
               -lock-timeout=5m \
               -out=tfplan
             
