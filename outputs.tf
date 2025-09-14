@@ -53,12 +53,3 @@ output "secrets_manager_secret_name" {
   value       = module.github_actions.secrets_manager_secret_name
 }
 
-# output "metrics_server_namespace" {
-#   description = "Namespace where Metrics Server is deployed"
-#   value       = module.metrics_server.namespace
-# }
-
-# output "metrics_server_api_service" {
-#   description = "Metrics Server API service name"
-#   value       = module.metrics_server.api_service_name
-# }
