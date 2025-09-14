@@ -221,10 +221,7 @@ jobs:
           fi
           
           # Run terraform apply using the plan file (state will be automatically saved to S3)
-          terraform apply tfplan
-          
-          # Check if apply was successful
-          if [ $? -eq 0 ]; then
+          if terraform apply tfplan; then
             echo "✅ Terraform apply completed successfully"
           else
             echo "❌ Terraform apply failed"
@@ -233,8 +230,12 @@ jobs:
           
           # Verify state is accessible
           echo "📋 Resources in state:"
-          terraform state list || echo "No resources in state yet (first run)"
-          echo "✅ State file is stored in S3 backend"
+          if terraform state list; then
+            echo "✅ State file is accessible and contains resources"
+          else
+            echo "⚠️ No resources in state yet (first run) or state access issue"
+          fi
+          echo "✅ Terraform infrastructure deployment completed"
 
   deploy-application:
     needs: [build-and-push, deploy-infrastructure]
