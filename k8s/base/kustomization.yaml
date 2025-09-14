@@ -59,4 +59,4 @@ patches:
   patch: |-
     - op: replace
       path: /metadata/annotations/alb.ingress.kubernetes.io~1certificate-arn
-      value: "arn:aws:acm:REGION:ACCOUNT_ID:certificate/CERTIFICATE_ID"
+      value: "arn:aws:acm:us-east-1:442122590633:certificate/CERTIFICATE_ID"

@@ -66,6 +66,7 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 - **Pod Security Standards** set to restricted (because default is too permissive)
 - **Network policies** for micro-segmentation
 - **Encrypted state** in S3 backend
+- **Dual Authentication**: Both IRSA (legacy) and Pod Identity (modern) for AWS service access
 
 ## Quick Deployment
 
@@ -81,7 +82,7 @@ I've put together a complete DevOps pipeline that covers everything from infrast
    - `AWS_SECRET_ACCESS_KEY`
 3. **Run Workflows** (Actions tab):
    - "Setup Terraform Backend" → Type "yes" → Run
-   - "CI/CD Pipeline for Hello-World App" → Run
+   - "CI/CD Pipeline for Hello-World App (IRSA + Pod Identity)" → Run
 4. **Get your app URL** from the workflow output
 
 ### Option 2: Local Deployment
