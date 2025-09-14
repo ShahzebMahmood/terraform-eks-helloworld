@@ -156,6 +156,7 @@
           uses: hashicorp/setup-terraform@v3
           with:
             terraform_version: 1.6.0
+            terraform_wrapper: false
 
         - name: Terraform Format Check
           run: terraform fmt -check
@@ -196,6 +197,10 @@
               echo "✅ Terraform initialized with S3 backend"
             else
               echo "❌ Terraform init failed with exit code $INIT_EXIT_CODE"
+              echo "💡 Common causes:"
+              echo "   - S3 backend bucket doesn't exist (run setup-backend workflow first)"
+              echo "   - AWS credentials issues"
+              echo "   - Network connectivity problems"
               exit $INIT_EXIT_CODE
             fi
             
@@ -231,6 +236,7 @@
 
         - name: Terraform Apply
           id: terraform-apply
+          timeout-minutes: 30
           run: |
             echo "🔧 Running terraform apply with S3 backend..."
             
@@ -262,7 +268,12 @@
               echo "✅ Terraform apply completed successfully"
             else
               echo "❌ Terraform apply failed with exit code $APPLY_EXIT_CODE"
-              echo "📋 Checking for any error details..."
+              echo "💡 Common causes:"
+              echo "   - AWS resource limits exceeded"
+              echo "   - IAM permission issues"
+              echo "   - Resource conflicts or dependencies"
+              echo "   - Network timeout issues"
+              echo "📋 Check the logs above for specific error details"
               exit $APPLY_EXIT_CODE
             fi
             
@@ -282,7 +293,7 @@
         - name: Checkout code
           uses: actions/checkout@v4
           with:
-            fetch-depth: 0
+            token: ${{ secrets.GITHUB_TOKEN }}
 
         - name: Configure AWS credentials
           uses: aws-actions/configure-aws-credentials@v4
@@ -326,6 +337,7 @@
             kubectl top nodes || echo "⚠️ Metrics Server not ready yet, but installation completed"
 
         - name: Deploy to EKS with Kustomize
+          timeout-minutes: 20
           run: |
             # Debug: Show current directory and files
             echo "Current directory: $(pwd)"

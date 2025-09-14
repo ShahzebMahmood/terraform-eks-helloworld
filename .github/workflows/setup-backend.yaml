@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS credentials  
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,6 +50,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.0
+          terraform_wrapper: false
 
       - name: Create S3 Bucket for Terraform State
         run: |

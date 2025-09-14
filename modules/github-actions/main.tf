@@ -45,47 +45,60 @@ resource "aws_iam_policy" "github_actions" {
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload",
-          "ecr:PutImage"
+          "ecr:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow" 
+        Action = [
+          "eks:*"
         ]
         Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "eks:DescribeCluster",
-          "eks:ListClusters"
+          "s3:*"
         ]
         Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "secretsmanager:GetSecretValue"
+          "dynamodb:*"
         ]
-        Resource = aws_secretsmanager_secret.github_credentials.arn
+        Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "sts:AssumeRole"
+          "ec2:*"
         ]
-        Resource = var.eks_cluster_role_arn
+        Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "iam:GetRole",
-          "iam:CreateRole",
-          "iam:AttachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:PassRole"
+          "iam:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*",
+          "logs:*",
+          "sns:*",
+          "budgets:*",
+          "sts:*"
         ]
         Resource = "*"
       }
