@@ -1,8 +1,11 @@
 # GitHub Configuration
-github_repo = "ShahzebMahmood/TF_AWS_Test"
+github_repo = "your-username/your-repo"
 
-# AWS Credentials for GitHub Actions (will be stored in Secrets Manager)
-# These should be provided as environment variables in CI/CD
+# AWS Configuration
+aws_account_id = "123456789012"
+
+# AWS Credentials for GitHub Actions (stored in Secrets Manager)
+# These should be provided as environment variables in CI/CD or AWS Secrets Manager
 # aws_access_key_id     = "your-access-key"
 # aws_secret_access_key = "your-secret-key"
 

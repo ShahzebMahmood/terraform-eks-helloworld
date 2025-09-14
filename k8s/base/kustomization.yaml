@@ -29,7 +29,7 @@ namespace: hello-world
 # Image transformations
 images:
 - name: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world
-  newName: 442122590633.dkr.ecr.us-east-1.amazonaws.com/hello-world
+  newName: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world
   newTag: latest
 
 # Patches for dynamic values
@@ -41,7 +41,7 @@ patches:
   patch: |-
     - op: replace
       path: /metadata/annotations/eks.amazonaws.com~1role-arn
-      value: "arn:aws:iam::442122590633:role/hello-world-pod-role"
+      value: "arn:aws:iam::ACCOUNT_ID:role/hello-world-pod-role"
 
 # Patch Pod Identity ServiceAccount with correct IAM role ARN
 - target:
@@ -50,7 +50,7 @@ patches:
   patch: |-
     - op: replace
       path: /metadata/annotations/eks.amazonaws.com~1role-arn
-      value: "arn:aws:iam::442122590633:role/hello-world-pod-identity-role"
+      value: "arn:aws:iam::ACCOUNT_ID:role/hello-world-pod-identity-role"
 
 # Patch Ingress with correct certificate ARN (when available)
 - target:
@@ -59,4 +59,4 @@ patches:
   patch: |-
     - op: replace
       path: /metadata/annotations/alb.ingress.kubernetes.io~1certificate-arn
-      value: "arn:aws:acm:us-east-1:442122590633:certificate/CERTIFICATE_ID"
+      value: "arn:aws:acm:REGION:ACCOUNT_ID:certificate/CERTIFICATE_ID"
