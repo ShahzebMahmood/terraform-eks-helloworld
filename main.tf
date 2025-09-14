@@ -110,12 +110,3 @@ module "billing" {
   tags         = var.tags
 }
 
-# ---------------------------
-# Metrics Server Module (Not needed - EKS provides metrics via eks-extension-metrics-api)
-# ---------------------------
-# module "metrics_server" {
-#   source = "./modules/metrics-server"
-#   tags   = var.tags
-#
-#   depends_on = [module.eks]
-# }
