@@ -12,3 +12,8 @@ output "pod_role_arn" {
   description = "ARN of the IAM role for the pod"
   value       = var.pod_role_arn
 }
+
+output "secrets_access_policy_arn" {
+  description = "ARN of the secrets access policy"
+  value       = aws_iam_policy.secrets_access.arn
+}

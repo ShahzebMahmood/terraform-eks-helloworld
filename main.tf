@@ -72,6 +72,15 @@ module "iam_oidc" {
 }
 
 # ---------------------------
+# IAM Module (Pod Identity resources)
+# ---------------------------
+module "iam_pod_identity" {
+  source             = "./modules/iam-pod-identity"
+  secrets_policy_arn = module.secrets.secrets_access_policy_arn
+  tags               = var.tags
+}
+
+# ---------------------------
 # Secrets Management Module
 # ---------------------------
 module "secrets" {
