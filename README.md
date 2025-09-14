@@ -151,6 +151,9 @@ kubectl apply -f k8s/
 # Get the load balancer URL
 kubectl get ingress hello-world-ingress -n hello-world
 
+# Test the application
+curl http://a0ddf4121dcff4a97916fc9caf9c1caf-760518887.us-east-1.elb.amazonaws.com
+
 # Or use port-forward for testing
 kubectl port-forward service/hello-world-service 8080:80 -n hello-world
 ```
