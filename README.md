@@ -1,6 +1,6 @@
 # Hello-World DevOps Project
 
-This is a real-world DevOps project I built to showcase how to deploy a scalable web application on AWS using modern tools and best practices. It's not just another tutorial - it's a production-ready setup that you can actually use.
+This is a real-world DevOps project I built to showcase how to deploy a scalable web application on AWS using modern tools and best practices. It's not just another tutorial it's a production-ready setup that you can actually use.
 
 ## What This Project Does
 
@@ -11,7 +11,7 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 - **GitHub Actions** for automated CI/CD
 - **CloudWatch** for monitoring and alerting
 - **Security** built in from the ground up with IAM, Secrets Manager, and proper pod security
-- **Auto-scaling** that actually works with HPA
+- **Auto-scaling** works with HPA
 
 ## How It All Fits Together
 
@@ -37,10 +37,10 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 ## What You Get
 
 ### Infrastructure That Actually Works
-- **VPC** with public subnets across 2 availability zones (because single points of failure are bad)
+- **VPC** with public subnets across 2 availability zones (because single points of failure are no best pratice for site realiabilty)
 - **EKS Cluster** with managed node groups (no more managing master nodes)
-- **Application Load Balancer** so your app is actually accessible from the internet
-- **Auto-scaling** that responds to real traffic with HPA
+- **Application Load Balancer** so your app is actually accessible from the internet (opted to go with classic)
+- **Auto-scaling** that responds to real traffic with HPA and metric server, however you can use promethues or open telemtry as well
 
 ### A Real Application
 - **Node.js Hello-World** app (simple but functional)
@@ -67,102 +67,45 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 - **Network policies** for micro-segmentation
 - **Encrypted state** in S3 backend
 
-## Getting Started (Should Take About 5 Minutes)
+## Quick Deployment
 
-### Important: Do Things in Order
-**follow this order or things will break as there are some dependcies that required:**
-1. **Setup Terraform Backend** (creates the S3 bucket and DynamoDB table)
-2. **CI/CD Pipeline** (deploys everything)
-3. **Destroy Infrastructure** (when you're done playing around)
-
-### What You Need
-- AWS Account (Free Tier works fine)
+### Prerequisites
+- AWS Account (Free Tier works)
 - GitHub Account
-- AWS CLI installed and configured
-- kubectl installed
+- AWS CLI configured (`aws configure`)
 
-### Step 1: Get the Code
+### Option 1: CI/CD Deployment (Recommended)
+1. **Fork this repository**
+2. **Add GitHub Secrets** (Settings → Secrets → Actions):
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+3. **Run Workflows** (Actions tab):
+   - "Setup Terraform Backend" → Type "yes" → Run
+   - "CI/CD Pipeline for Hello-World App" → Run
+4. **Get your app URL** from the workflow output
+
+### Option 2: Local Deployment
 ```bash
+# Clone and setup
 git clone https://github.com/your-username/TF_AWS_Test-1.git
 cd TF_AWS_Test-1
-```
 
-### Step 2: Set Up AWS Credentials
-```bash
-aws configure
-# Enter your AWS Access Key ID
-# Enter your AWS Secret Access Key
-# Enter your region (e.g., us-east-1)
-# Enter output format (json)
-```
-
-### Step 3: Configure GitHub Secrets
-Go to your GitHub repository → Settings → Secrets and variables → Actions
-
-Add these secrets:
-- `AWS_ACCESS_KEY_ID`: Your AWS access key
-- `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
-
-### Step 4: Set Up the Backend
-**Option A: Using GitHub Actions (Easier)**
-1. Go to Actions tab in GitHub
-2. Select "Setup Terraform Backend"
-3. Click "Run workflow"
-4. Type "yes" to confirm
-5. Click "Run workflow"
-
-**Option B: Using Local Script**
-```bash
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Set up Terraform backend
-./scripts/setup-terraform-backend.sh
-```
-
-### Step 5: Deploy Everything
-**Option A: Using GitHub Actions (Recommended)**
-1. Go to Actions tab in GitHub
-2. Select "CI/CD Pipeline for Hello-World App"
-3. Click "Run workflow"
-4. Click "Run workflow"
-
-**Option B: Using Local Commands**
-```bash
 # Deploy infrastructure
 terraform init
-terraform plan
 terraform apply
-```
 
-### Step 6: Deploy the App
-```bash
-# Update kubeconfig
+# Deploy app to EKS
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
-
-# Deploy application
 kubectl apply -f k8s/
-```
 
-### Step 7: See Your App in Action
-```bash
-# Get the load balancer URL
+# Get app URL
 kubectl get ingress hello-world-ingress -n hello-world
-
-# Test the application
-curl http://a0ddf4121dcff4a97916fc9caf9c1caf-760518887.us-east-1.elb.amazonaws.com
-
-# Check HPA status (auto-scaling)
-kubectl get hpa -n hello-world
-
-# Check pod metrics
-kubectl top pods -n hello-world
-
-# Or use port-forward for testing
-kubectl port-forward service/hello-world-service 8080:80 -n hello-world
 ```
 
-Visit: `http://localhost:8080` or the load balancer URL
+### Access Your App
+- **Load Balancer URL**: Check ingress output
+- **Local testing**: `kubectl port-forward service/hello-world-service 8080:80 -n hello-world`
+- **Monitor**: `kubectl get hpa -n hello-world` (auto-scaling)
 
 ## Cleaning Up
 
