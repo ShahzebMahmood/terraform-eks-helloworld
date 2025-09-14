@@ -1,4 +1,10 @@
 # ---------------------------
+# Data Sources
+# ---------------------------
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# ---------------------------
 # VPC Module
 # Started with basic VPC setup, learned about subnets the hard way
 # ---------------------------
