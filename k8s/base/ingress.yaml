@@ -13,7 +13,7 @@ metadata:
     alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
 spec:
   rules:
-  - host: hello-world.example.com  # Replace with your domain
+  - host: hello-world.example.com
     http:
       paths:
       - path: /

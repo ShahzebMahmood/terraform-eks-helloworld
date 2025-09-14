@@ -4,6 +4,8 @@ github_repo = "your-username/your-repo"
 # Required AWS Configuration
 aws_account_id = "123456789012"
 
+# Access keys are no longer needed for CI/CD (uses OIDC)
+# For local testing only, uncomment and provide values:
 # aws_access_key_id     = "your-access-key"
 # aws_secret_access_key = "your-secret-key"
 

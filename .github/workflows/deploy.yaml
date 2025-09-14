@@ -1,4 +1,8 @@
-name: CI/CD Pipeline for Hello-World App (IRSA + Pod Identity)
+name: CI/CD Pipeline for Hello-World App (OIDC + IRSA + Pod Identity)
+
+# This workflow uses OIDC authentication instead of access keys
+# Requires: AWS_ACCOUNT_ID secret in GitHub repository settings
+# OIDC provider must be created first via setup-backend.yaml workflow
 
 on:
   workflow_dispatch:
@@ -42,7 +46,7 @@ jobs:
   build-and-push:
     needs: [test, deploy-infrastructure]
     runs-on: ubuntu-latest
-    environment: AWS_ACCESS_KEY_ID
+    environment: AWS_OIDC
     permissions:
       id-token: write
       contents: read
@@ -53,9 +57,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
 
       - name: Get ECR repository URI
         id: get-ecr
@@ -125,7 +129,7 @@ jobs:
   deploy-infrastructure:
     needs: test
     runs-on: ubuntu-latest
-    environment: AWS_ACCESS_KEY_ID
+    environment: AWS_OIDC
     permissions:
       id-token: write
       contents: read
@@ -136,9 +140,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
 
       - name: Set GitHub repo environment variable
         run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
@@ -192,8 +196,6 @@ jobs:
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -out=tfplan
 
       - name: Terraform Apply
@@ -205,8 +207,6 @@ jobs:
           terraform apply \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
-            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -auto-approve
           
           # Verify state is accessible
@@ -218,7 +218,7 @@ jobs:
     needs: [build-and-push, deploy-infrastructure]
     if: always() && needs.deploy-infrastructure.result == 'success'
     runs-on: ubuntu-latest
-    environment: AWS_ACCESS_KEY_ID
+    environment: AWS_OIDC
     permissions:
       id-token: write
       contents: read
@@ -231,9 +231,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
           aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions
 
       - name: Get ECR repository URI and AWS Account ID
         id: get-ecr

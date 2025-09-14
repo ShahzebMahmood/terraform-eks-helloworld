@@ -92,12 +92,13 @@ kubectl scale deployment hello-world --replicas=2 -n hello-world
 ### CI/CD Deployment (Recommended)
 1. Fork this repository
 2. Add GitHub Secrets (Settings → Secrets → Actions):
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_ACCOUNT_ID` (your AWS account ID)
 3. Run Workflows (Actions tab):
-   - "Setup Terraform Backend" → Type "yes" → Run
-   - "CI/CD Pipeline for Hello-World App (IRSA + Pod Identity)" → Run
+   - "Setup Terraform Backend" → Type "yes" → Run (creates OIDC provider)
+   - "CI/CD Pipeline for Hello-World App (OIDC + IRSA + Pod Identity)" → Run
 4. Get your app URL from the workflow output
+
+**Note**: This workflow uses OIDC authentication for enhanced security. No AWS access keys needed!
 
 ### Local Deployment
 **For Local Testing**
@@ -117,7 +118,7 @@ aws iam create-open-id-connect-provider \
 # Replace these placeholders in k8s/base/kustomization.yaml:
 # - ACCOUNT_ID → Your AWS Account ID
 # - REGION → Your AWS Region (e.g., us-east-1)
-# - CERTIFICATE_ID → Your ACM certificate ID (optional for testing)
+# - CERTIFICATE_ID → Your ACM certificate ID (optional for testing) 
 
 # Get your AWS Account ID and update kustomization.yaml
 AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
