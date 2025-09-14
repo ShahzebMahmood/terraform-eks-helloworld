@@ -109,3 +109,13 @@ module "billing" {
   alert_email  = var.alert_email
   tags         = var.tags
 }
+
+# ---------------------------
+# Metrics Server Module (Required for HPA)
+# ---------------------------
+module "metrics_server" {
+  source = "./modules/metrics-server"
+  tags   = var.tags
+  
+  depends_on = [module.eks]
+}
