@@ -112,6 +112,12 @@ terraform init
 terraform plan
 terraform apply
 
+# Build and push Docker image to ECR
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com
+docker build -t hello-world ./app
+docker tag hello-world:latest $(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com/hello-world:latest
+docker push $(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com/hello-world:latest
+
 # Deploy to EKS
 aws eks update-kubeconfig --name thrive-cluster-test --region us-east-1
 kubectl apply -f k8s/
