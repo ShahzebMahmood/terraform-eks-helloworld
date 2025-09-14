@@ -189,11 +189,22 @@
             cat backend.tf
             echo "🚀 Running terraform init..."
             terraform init
-            echo "✅ Terraform initialized with S3 backend"
+            INIT_EXIT_CODE=$?
+            echo "🔍 Terraform init exit code: $INIT_EXIT_CODE"
+            
+            if [ $INIT_EXIT_CODE -eq 0 ]; then
+              echo "✅ Terraform initialized with S3 backend"
+            else
+              echo "❌ Terraform init failed with exit code $INIT_EXIT_CODE"
+              exit $INIT_EXIT_CODE
+            fi
+            
             echo "📁 Checking for .terraform directory:"
             ls -la .terraform/
             echo "📄 Checking for terraform.tfstate files:"
             find . -name "*.tfstate*" -type f
+            echo "🔍 Backend configuration in .terraform/terraform.tfstate:"
+            cat .terraform/terraform.tfstate | jq '.backend.config' || echo "Could not parse backend config"
 
         - name: Terraform Validate
           run: terraform validate
@@ -238,11 +249,22 @@
             
             # Run terraform apply using the plan file (state will be automatically saved to S3)
             echo "🚀 Starting terraform apply..."
-            if terraform apply tfplan; then
+            echo "📄 Plan file details before apply:"
+            ls -la tfplan
+            echo "🔍 Plan file size: $(ls -lh tfplan | awk '{print $5}')"
+            
+            # Run terraform apply and capture the exit code
+            terraform apply tfplan
+            APPLY_EXIT_CODE=$?
+            
+            echo "🔍 Terraform apply exit code: $APPLY_EXIT_CODE"
+            
+            if [ $APPLY_EXIT_CODE -eq 0 ]; then
               echo "✅ Terraform apply completed successfully"
             else
-              echo "❌ Terraform apply failed with exit code $?"
-              exit 1
+              echo "❌ Terraform apply failed with exit code $APPLY_EXIT_CODE"
+              echo "📋 Checking for any error details..."
+              exit $APPLY_EXIT_CODE
             fi
             
             # Verify state is accessible
