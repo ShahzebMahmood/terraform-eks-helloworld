@@ -185,8 +185,15 @@
         - name: Terraform Init
           run: |
             echo "🔄 Initializing Terraform with S3 backend..."
-            terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=${{ env.AWS_REGION }}" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+            echo "📋 Backend configuration from backend.tf:"
+            cat backend.tf
+            echo "🚀 Running terraform init..."
+            terraform init
             echo "✅ Terraform initialized with S3 backend"
+            echo "📁 Checking for .terraform directory:"
+            ls -la .terraform/
+            echo "📄 Checking for terraform.tfstate files:"
+            find . -name "*.tfstate*" -type f
 
         - name: Terraform Validate
           run: terraform validate
@@ -240,11 +247,7 @@
             
             # Verify state is accessible
             echo "📋 Resources in state:"
-            if terraform state list; then
-              echo "✅ State file is accessible and contains resources"
-            else
-              echo "⚠️ No resources in state yet (first run) or state access issue"
-            fi
+            terraform state list || echo "⚠️ No resources in state yet (first run) or state access issue"
             echo "✅ Terraform infrastructure deployment completed"
 
     deploy-application:
