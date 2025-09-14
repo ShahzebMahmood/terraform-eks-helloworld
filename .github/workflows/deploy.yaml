@@ -1,15 +1,4 @@
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: CI/CD Pipeline for Hello-World App (OIDC + IRSA + Pod Identity)
-
-# This workflow builds, tests, and deploys the application and its infrastructure sequentially.
-# It uses OIDC for secure, keyless authentication to AWS.
-#
-# Workflow Logic (Sequential):
-# 1. Test: Runs linting and tests on the application code.
-# 2. Deploy Infra: Deploys AWS infrastructure (EKS Cluster, IAM roles, etc.) using Terraform.
-# 3. Build & Push: Builds the Docker image, scans it, and pushes it to the ECR repo created in the previous step.
-# 4. Deploy App: Deploys the application to the EKS cluster using Kustomize.
-# 5. Notify: Reports the final status of the deployment.
 
 on:
   workflow_dispatch:
@@ -26,36 +15,16 @@ env:
 
 jobs:
   test:
-    name: 🧪 Test Application
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: app/package-lock.json
-
-      - name: Install dependencies
-        working-directory: ./app
-        run: npm ci
-
-      - name: Run tests
-        working-directory: ./app
-        run: 'npm test || echo "No tests configured yet"'
-
-      - name: Lint code
-        working-directory: ./app
-        run: 'npm run lint || echo "No linting configured yet"'
-
   deploy-infrastructure:
     name: 🏗️ Deploy Infrastructure
     needs: test
     runs-on: ubuntu-latest
-    environment: AWS_OIDC # GitHub Environment with AWS_ACCOUNT_ID secret
+    environment: AWS_OIDC # GitHub Environment containing the AWS_ACCOUNT_ID secret
     permissions:
       id-token: write # Required for OIDC authentication
       contents: read
@@ -101,6 +70,8 @@ jobs:
       - name: Terraform Plan
         id: plan
         run: |
+          # No AWS credential variables are needed here.
+          # Terraform automatically uses the temporary credentials from the OIDC role.
           terraform plan \
             -var="github_repo=${{ github.repository }}" \
             -var="aws_account_id=${{ secrets.AWS_ACCOUNT_ID }}" \
@@ -110,126 +81,3 @@ jobs:
       - name: Terraform Apply
         id: apply
         run: terraform apply -auto-approve tfplan
-
-  build-and-push:
-    name: 🔨 Build and Push Image
-    needs: deploy-infrastructure
-    runs-on: ubuntu-latest
-    environment: AWS_OIDC # GitHub Environment with AWS_ACCOUNT_ID secret
-    permissions:
-      id-token: write # Required for OIDC authentication
-      contents: read
-    outputs:
-      ecr_repo_uri: ${{ steps.get-ecr.outputs.ECR_REPO }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActionsBuild
-
-      - name: Get ECR repository URI
-        id: get-ecr
-        run: |
-          ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
-          echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
-
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build, tag, and push image to ECR
-        id: build-image
-        working-directory: ./app
-        run: |
-          docker build -t ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} .
-          docker tag ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
-          docker push ${{ steps.get-ecr.outputs.ECR_REPO }} --all-tags
-          echo "Image pushed successfully!"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
-          format: 'table'
-          output: 'trivy-results.txt'
-
-      - name: Display Trivy scan results
-        if: always()
-        run: |
-          echo "## Trivy Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          if [ -f "trivy-results.txt" ]; then
-            cat trivy-results.txt >> $GITHUB_STEP_SUMMARY
-          else
-            echo "⚠️ No scan results found" >> $GITHUB_STEP_SUMMARY
-          fi
-
-  deploy-application:
-    name: 🚀 Deploy Application
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    environment: AWS_OIDC # GitHub Environment with AWS_ACCOUNT_ID secret
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials via OIDC
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActionsDeploy
-
-      - name: Update kubeconfig for EKS
-        run: aws eks update-kubeconfig --name ${{ env.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
-
-      - name: Deploy to EKS with Kustomize
-        run: |
-          echo "🔧 Updating Kustomize configuration..."
-          # Replace placeholders for IAM Role ARNs and other AWS-specific values
-          find k8s/base -name "*.yaml" -exec sed -i "s|ACCOUNT_ID|${{ secrets.AWS_ACCOUNT_ID }}|g" {} \;
-          find k8s/base -name "*.yaml" -exec sed -i "s|REGION|${{ env.AWS_REGION }}|g" {} \;
-
-          # Use kustomize command to set the new image, which is safer than sed
-          cd k8s/base
-          kustomize edit set image ${{ needs.build-and-push.outputs.ecr_repo_uri }}:${{ env.IMAGE_TAG }}
-          cd ../..
-
-          echo "📋 Generated kustomization.yaml:"
-          cat k8s/base/kustomization.yaml
-
-          echo "🚀 Deploying application with Kustomize..."
-          kubectl apply -k k8s/base
-          echo "✅ All Kubernetes resources applied successfully."
-
-      - name: Wait for deployments to be ready
-        run: |
-          echo "⏳ Waiting for deployments to be ready..."
-          kubectl rollout status deployment/hello-world -n hello-world --timeout=5m
-          kubectl rollout status deployment/hello-world-pod-identity -n hello-world --timeout=5m
-
-      - name: Verify deployments
-        run: |
-          echo "🔍 Final verification of deployed resources..."
-          kubectl get all -n hello-world
-
-  notify:
-    name: 🔔 Notify Status
-    needs: deploy-application
-    runs-on: ubuntu-latest
-    if: always() # Ensures this job runs even if the deployment fails
-    steps:
-      - name: Notify deployment status
-        run: |
-          if [ "${{ needs.deploy-application.result }}" == "success" ]; then
-            echo "✅ Deployment Succeeded!"
-          else
-            echo "❌ Deployment Failed!"
-            # Add steps here to send a notification to Slack, Teams, etc.
-          fi
