@@ -24,7 +24,7 @@ env:
 jobs:
   setup-backend:
     runs-on: ubuntu-latest
-    environment: AWS_OIDC
+    environment: AWS_ACCESS_KEY_ID
     if: github.event.inputs.confirm_setup == 'yes'
     
     steps:

@@ -12,7 +12,7 @@ terraform {
     # AWS region
     region = "us-east-1"
 
-    # Enable state locking with DynamoDB
+    # Enable state locking with DynamoDB  
     dynamodb_table = "thrive-cluster-test-terraform-locks"
 
     # Enable encryption
