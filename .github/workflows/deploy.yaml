@@ -1,471 +1,384 @@
-  name: CI/CD Pipeline for Hello-World App (OIDC + IRSA + Pod Identity)
+name: CI/CD Pipeline for Hello-World App (IRSA + Pod Identity)
 
-  # This workflow uses OIDC authentication instead of access keys
-  # Requires: AWS_ACCOUNT_ID secret in GitHub repository settings
-  # OIDC provider must be created first via setup-backend.yaml workflow
+on:
+  workflow_dispatch:
 
-  on:
-    workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
 
-  permissions:
-    contents: read
-    actions: read
+env:
+  AWS_REGION: us-east-1
+  CLUSTER_NAME: thrive-cluster-test
+  ECR_REPOSITORY: hello-world
+  IMAGE_TAG: ${{ github.sha }}
 
-  env:
-    AWS_REGION: us-east-1
-    CLUSTER_NAME: thrive-cluster-test
-    ECR_REPOSITORY: hello-world
-    IMAGE_TAG: ${{ github.sha }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  jobs:
-    test:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: app/package-lock.json
 
-        - name: Setup Node.js
-          uses: actions/setup-node@v4
-          with:
-            node-version: '18'
-            cache: 'npm'
-            cache-dependency-path: app/package-lock.json
+      - name: Install dependencies
+        working-directory: ./app
+        run: npm ci
 
-        - name: Install dependencies
-          working-directory: ./app
-          run: npm ci
+      - name: Run tests
+        working-directory: ./app
+        run: 'npm test || echo "No tests configured yet"'
 
-        - name: Run tests
-          working-directory: ./app
-          run: 'npm test || echo "No tests configured yet"'
+      - name: Lint code
+        working-directory: ./app
+        run: 'npm run lint || echo "No linting configured yet"'
 
-        - name: Lint code
-          working-directory: ./app
-          run: 'npm run lint || echo "No linting configured yet"'
+  build-and-push:
+    needs: [test, deploy-infrastructure]
+    runs-on: ubuntu-latest
+    environment: AWS_ACCESS_KEY_ID
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    build-and-push:
-      needs: [test, deploy-infrastructure]
-      runs-on: ubuntu-latest
-      environment: AWS_OIDC
-      permissions:
-        id-token: write
-        contents: read
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v4
-          with:
-            role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
-            aws-region: ${{ env.AWS_REGION }}
-            role-session-name: GitHubActions
+      - name: Get ECR repository URI
+        id: get-ecr
+        run: |
+          ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
+          echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
 
-        - name: Get ECR repository URI
-          id: get-ecr
-          run: |
-            ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
-            echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
-            echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+      - name: Check if image already exists
+        id: check-image
+        run: |
+          echo "🔍 Checking if image already exists in ECR..."
+          if aws ecr describe-images --repository-name ${{ env.ECR_REPOSITORY }} --image-ids imageTag=${{ env.IMAGE_TAG }} --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+            echo "✅ Image with tag ${{ env.IMAGE_TAG }} already exists in ECR"
+            echo "IMAGE_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "📦 Image with tag ${{ env.IMAGE_TAG }} does not exist, will build and push"
+            echo "IMAGE_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Build, tag, and push image to ECR
+        if: steps.check-image.outputs.IMAGE_EXISTS == 'false'
+        working-directory: ./app
+        run: |
+          echo "🔨 Building Docker image..."
+          docker build -t ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} .
+          docker tag ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
+          
+          echo "📤 Pushing image to ECR..."
+          docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
+          docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
+          echo "✅ Image pushed successfully!"
+      - name: Skip build and push
+        if: steps.check-image.outputs.IMAGE_EXISTS == 'true'
+        run: |
+          echo "⏭️ Skipping build and push - image already exists"
+          echo "📋 Using existing image: ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}"
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
+          format: 'table'
+          output: 'trivy-results.txt'
 
-        - name: Login to ECR
-          id: login-ecr
-          uses: aws-actions/amazon-ecr-login@v2
-
-        - name: Check if image already exists
-          id: check-image
-          run: |
-            echo "🔍 Checking if image already exists in ECR..."
-            if aws ecr describe-images --repository-name ${{ env.ECR_REPOSITORY }} --image-ids imageTag=${{ env.IMAGE_TAG }} --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
-              echo "Image with tag ${{ env.IMAGE_TAG }} already exists in ECR"
-              echo "IMAGE_EXISTS=true" >> $GITHUB_OUTPUT
-            else
-              echo "Image with tag ${{ env.IMAGE_TAG }} does not exist, will build and push"
-              echo "IMAGE_EXISTS=false" >> $GITHUB_OUTPUT
-            fi
-
-        - name: Build, tag, and push image to ECR
-          if: steps.check-image.outputs.IMAGE_EXISTS == 'false'
-          working-directory: ./app
-          run: |
-            echo "🔨 Building Docker image..."
-            docker build -t ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} .
-            docker tag ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }} ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
-            
-            echo "Pushing image to ECR..."
-            docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
-            docker push ${{ steps.get-ecr.outputs.ECR_REPO }}:latest
-            echo "Image pushed successfully!"
-
-        - name: Skip build and push
-          if: steps.check-image.outputs.IMAGE_EXISTS == 'true'
-          run: |
-            echo "⏭️ Skipping build and push - image already exists"
-            echo "📋 Using existing image: ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}"
-
-        - name: Run Trivy vulnerability scanner
-          uses: aquasecurity/trivy-action@master
-          with:
-            image-ref: ${{ steps.get-ecr.outputs.ECR_REPO }}:${{ env.IMAGE_TAG }}
-            format: 'table'
-            output: 'trivy-results.txt'
-
-        - name: Display Trivy scan results
-          if: always()
-          run: |
-            echo "🔍 Trivy Security Scan Results:"
-            echo "=================================="
-            if [ -f "trivy-results.txt" ]; then
-              echo "✅ Security scan completed successfully"
-              echo "📊 Scan results:"
-              cat trivy-results.txt
-              echo ""
-              echo "💡 Note: GitHub Security tab is only available for Organizations"
-              echo "   For personal repositories, scan results are shown above"
-            else
-              echo "⚠️ No scan results found"
-            fi
-
-    deploy-infrastructure:
-      needs: test
-      runs-on: ubuntu-latest
-      environment: AWS_OIDC
-      permissions:
-        id-token: write
-        contents: read
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v4
-          with:
-            role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
-            aws-region: ${{ env.AWS_REGION }}
-            role-session-name: GitHubActions
-
-        - name: Set GitHub repo environment variable
-          run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
-
-        - name: Get AWS Account ID
-          run: |
-            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_ENV
-
-        - name: Setup Terraform
-          uses: hashicorp/setup-terraform@v3
-          with:
-            terraform_version: 1.6.0
-            terraform_wrapper: false
-
-        - name: Terraform Format Check
-          run: terraform fmt -check
-
-        - name: Verify Backend Infrastructure
-          run: |
-            echo "🔍 Verifying Terraform backend infrastructure..."
-            
-            # Check if S3 bucket exists
-            if aws s3api head-bucket --bucket "thrive-cluster-test-terraform-state" 2>/dev/null; then
-              echo "✅ S3 backend bucket exists"
-            else
-              echo "❌ S3 backend bucket not found!"
-              echo "💡 Please run the 'Setup Terraform Backend' workflow first"
-              exit 1
-            fi
-            
-            # Check if DynamoDB table exists
-            if aws dynamodb describe-table --table-name "thrive-cluster-test-terraform-locks" --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
-              echo "✅ DynamoDB lock table exists"
-            else
-              echo "❌ DynamoDB lock table not found!"
-              echo "💡 Please run the 'Setup Terraform Backend' workflow first"
-              exit 1
-            fi
-
-        - name: Terraform Init
-          run: |
-            echo "🔄 Initializing Terraform with S3 backend..."
-            echo "📋 Backend configuration from backend.tf:"
-            cat backend.tf
-            echo "🚀 Running terraform init..."
-            terraform init
-            INIT_EXIT_CODE=$?
-            echo "🔍 Terraform init exit code: $INIT_EXIT_CODE"
-            
-            if [ $INIT_EXIT_CODE -eq 0 ]; then
-              echo "✅ Terraform initialized with S3 backend"
-            else
-              echo "❌ Terraform init failed with exit code $INIT_EXIT_CODE"
-              echo "💡 Common causes:"
-              echo "   - S3 backend bucket doesn't exist (run setup-backend workflow first)"
-              echo "   - AWS credentials issues"
-              echo "   - Network connectivity problems"
-              exit $INIT_EXIT_CODE
-            fi
-            
-            echo "📁 Checking for .terraform directory:"
-            ls -la .terraform/
-            echo "📄 Checking for terraform.tfstate files:"
-            find . -name "*.tfstate*" -type f
-            echo "🔍 Backend configuration in .terraform/terraform.tfstate:"
-            cat .terraform/terraform.tfstate | jq '.backend.config' || echo "Could not parse backend config"
-
-        - name: Terraform Validate
-          run: terraform validate
-
-        - name: Force Unlock Terraform State (if needed)
-          run: |
-            echo "🔓 Checking for stuck Terraform locks..."
-            # This step is now handled dynamically in terraform plan/apply
-            # Hard-coded lock IDs should not be used
-            echo "✅ Lock check completed"
-
-        - name: Terraform Plan
-          run: |
-            echo "📋 Running terraform plan..."
-            terraform plan \
-              -var="github_repo=$GITHUB_REPO" \
-              -var="aws_account_id=$AWS_ACCOUNT_ID" \
-              -lock-timeout=5m \
-              -out=tfplan
-            
-            echo "✅ Terraform plan completed"
-            echo "📄 Plan file created:"
-            ls -la tfplan
-
-        - name: Terraform Apply
-          id: terraform-apply
-          timeout-minutes: 30
-          run: |
-            echo "🔧 Running terraform apply with S3 backend..."
-            
-            # Check if plan file exists and show its details
-            if [ ! -f "tfplan" ]; then
-              echo "❌ Plan file 'tfplan' not found!"
-              echo "📁 Current directory contents:"
-              ls -la
-              exit 1
-            fi
-            
-            echo "📄 Plan file exists, size: $(ls -lh tfplan | awk '{print $5}')"
-            echo "🔍 Plan file details:"
-            ls -la tfplan
-            
-            # Run terraform apply using the plan file (state will be automatically saved to S3)
-            echo "🚀 Starting terraform apply..."
-            echo "📄 Plan file details before apply:"
-            ls -la tfplan
-            echo "🔍 Plan file size: $(ls -lh tfplan | awk '{print $5}')"
-            
-            # Run terraform apply and capture the exit code
-            terraform apply tfplan
-            APPLY_EXIT_CODE=$?
-            
-            echo "🔍 Terraform apply exit code: $APPLY_EXIT_CODE"
-            
-            if [ $APPLY_EXIT_CODE -eq 0 ]; then
-              echo "✅ Terraform apply completed successfully"
-            else
-              echo "❌ Terraform apply failed with exit code $APPLY_EXIT_CODE"
-              echo "💡 Common causes:"
-              echo "   - AWS resource limits exceeded"
-              echo "   - IAM permission issues"
-              echo "   - Resource conflicts or dependencies"
-              echo "   - Network timeout issues"
-              echo "📋 Check the logs above for specific error details"
-              exit $APPLY_EXIT_CODE
-            fi
-            
-            # Verify state is accessible
-            echo "📋 Resources in state:"
-            terraform state list || echo "⚠️ No resources in state yet (first run) or state access issue"
-            echo "✅ Terraform infrastructure deployment completed"
-
-    deploy-application:
-      needs: [build-and-push]
-      runs-on: ubuntu-latest
-      environment: AWS_OIDC
-      permissions:
-        id-token: write
-        contents: read
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            token: ${{ secrets.GITHUB_TOKEN }}
-
-        - name: Configure AWS credentials
-          uses: aws-actions/configure-aws-credentials@v4
-          with:
-            role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/thrive-cluster-test-github-actions-role
-            aws-region: ${{ env.AWS_REGION }}
-            role-session-name: GitHubActions
-
-        - name: Get ECR repository URI and AWS Account ID
-          id: get-ecr
-          run: |
-            ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
-            AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-            echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
-            echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
-            echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
-
-        - name: Update kubeconfig
-          run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
-
-        - name: Install Metrics Server (Required for HPA)
-          run: |
-            echo " Installing Metrics Server for HPA support..."
-            
-            # Check if Metrics Server is already installed
-            if kubectl get deployment metrics-server -n kube-system >/dev/null 2>&1; then
-              echo " Metrics Server already installed"
-            else
-              echo " Installing Metrics Server..."
-              kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-              
-              # Wait for Metrics Server to be ready
-              echo " Waiting for Metrics Server to be ready..."
-              kubectl wait --for=condition=available --timeout=300s deployment/metrics-server -n kube-system
-              
-              echo " Metrics Server installed and ready!"
-            fi
-            
-            # Verify Metrics Server is working
-            echo "🔍 Verifying Metrics Server..."
-            kubectl top nodes || echo "⚠️ Metrics Server not ready yet, but installation completed"
-
-        - name: Deploy to EKS with Kustomize
-          timeout-minutes: 20
-          run: |
-            # Debug: Show current directory and files
-            echo "Current directory: $(pwd)"
-            echo "Files in k8s directory:"
-            ls -la k8s/
-            echo "Files in k8s/base directory:"
-            ls -la k8s/base/
-            
-            # Update Kustomize configuration with dynamic values
-            echo "🔧 Updating Kustomize configuration with dynamic values..."
-            
-            # Update all Kubernetes manifests with correct values
-            # Replace ACCOUNT_ID and REGION placeholders in all YAML files
-            find k8s/base -name "*.yaml" -exec sed -i "s|ACCOUNT_ID|${{ steps.get-ecr.outputs.AWS_ACCOUNT_ID }}|g" {} \;
-            find k8s/base -name "*.yaml" -exec sed -i "s|REGION|${{ env.AWS_REGION }}|g" {} \;
-            
-            # Update ECR image URI in kustomization.yaml
-            sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world|${{ steps.get-ecr.outputs.ECR_REPO }}|g" k8s/base/kustomization.yaml
-            # Update image tag
-            sed -i "s|:latest|:${{ env.IMAGE_TAG }}|g" k8s/base/kustomization.yaml
-            
-            # Show the updated kustomization file for debugging
-            echo "📋 Updated kustomization.yaml:"
-            cat k8s/base/kustomization.yaml
-            
-            # Build and preview the Kustomize output
-            echo "🔍 Building Kustomize configuration..."
-            kubectl kustomize k8s/base > kustomize-output.yaml
-            echo "📋 Generated Kustomize output:"
-            cat kustomize-output.yaml
-            
-            # Deploy using Kustomize
-            echo "🚀 Deploying application with Kustomize..."
-            kubectl apply -k k8s/base
-            
-            echo "✅ All Kubernetes resources applied successfully with Kustomize!"
-
-        - name: Verify deployments exist
-          run: |
-            echo "🔍 Verifying deployments were created..."
-            kubectl get deployment hello-world -n hello-world || { echo "❌ IRSA deployment not found"; exit 1; }
-            kubectl get deployment hello-world-pod-identity -n hello-world || { echo "❌ Pod Identity deployment not found"; exit 1; }
-            echo "✅ Both deployments found"
-
-        - name: Debug pod status
-          run: |
-            echo "🔍 Checking pod status and events..."
-            echo "📋 Pods in hello-world namespace:"
-            kubectl get pods -n hello-world -o wide
+      - name: Display Trivy scan results
+        if: always()
+        run: |
+          echo "🔍 Trivy Security Scan Results:"
+          echo "=================================="
+          if [ -f "trivy-results.txt" ]; then
+            echo "✅ Security scan completed successfully"
+            echo "📊 Scan results:"
+            cat trivy-results.txt
             echo ""
-            echo "📋 Service Accounts:"
-            kubectl get serviceaccounts -n hello-world
-            echo ""
-            echo "📋 Pod events:"
-            kubectl get events -n hello-world --sort-by='.lastTimestamp'
-            echo ""
-            echo "📋 IRSA Deployment status:"
-            kubectl describe deployment hello-world -n hello-world
-            echo ""
-            echo "📋 Pod Identity Deployment status:"
-            kubectl describe deployment hello-world-pod-identity -n hello-world
+            echo "💡 Note: GitHub Security tab is only available for Organizations"
+            echo "   For personal repositories, scan results are shown above"
+          else
+            echo "⚠️ No scan results found"
+          fi
+  deploy-infrastructure:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: AWS_ACCESS_KEY_ID
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-        - name: Verify HPA is working
-          run: |
-            echo "📊 Checking HPA status..."
-            echo "📋 HPA details:"
-            kubectl get hpa -n hello-world -o wide
-            echo ""
-            echo "📋 HPA description:"
-            kubectl describe hpa hello-world-hpa -n hello-world
-            echo ""
-            echo "📋 Pod metrics (if available):"
-            kubectl top pods -n hello-world || echo "⚠️ Metrics not available yet (this is normal for new deployments)"
-            echo ""
-            echo "📋 ReplicaSet status:"
-            kubectl get rs -n hello-world
-            echo ""
-            echo "📋 ServiceAccount status:"
-            kubectl get sa hello-world-sa -n hello-world -o yaml
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-        - name: Verify Pod Identity setup
-          run: |
-            echo "🔍 Verifying Pod Identity configuration..."
-            echo "📋 Pod Identity ServiceAccount:"
-            kubectl get sa hello-world-pod-identity-sa -n hello-world -o yaml
-            echo ""
-            echo "📋 EKS Addons (checking for Pod Identity):"
-            aws eks describe-addon --cluster-name thrive-cluster-test --addon-name eks-pod-identity-agent --region ${{ env.AWS_REGION }} || echo "⚠️ Pod Identity addon not found"
-            echo ""
-            echo "📋 Pod Identity pods status:"
-            kubectl get pods -n hello-world -l app=hello-world-pod-identity
-            echo ""
-            echo "📋 Pod Identity pod logs (first few lines):"
-            kubectl logs -n hello-world -l app=hello-world-pod-identity --tail=5 || echo "⚠️ No logs available yet"
+      - name: Set GitHub repo environment variable
+        run: echo "GITHUB_REPO=${{ github.repository }}" >> $GITHUB_ENV
 
-        - name: Wait for deployments
-          run: |
-            echo "⏳ Waiting for deployments to be ready..."
-            kubectl rollout status deployment/hello-world -n hello-world --timeout=300s
-            kubectl rollout status deployment/hello-world-pod-identity -n hello-world --timeout=300s
+      - name: Get AWS Account ID
+        run: |
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_ENV
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
 
-        - name: Verify deployments
-          run: |
-            echo "🔍 Final verification..."
-            echo "📋 IRSA Pods:"
-            kubectl get pods -l app=hello-world -n hello-world
-            echo ""
-            echo "📋 Pod Identity Pods:"
-            kubectl get pods -l app=hello-world-pod-identity -n hello-world
-            echo ""
-            echo "📋 Services:"
-            kubectl get services -n hello-world
-            echo ""
-            echo "📋 Ingress:"
-            kubectl get ingress -n hello-world
+      - name: Terraform Format Check
+        run: terraform fmt -check
 
-    notify:
-      needs: [deploy-application]
-      runs-on: ubuntu-latest
-      if: always()
-      steps:
-        - name: Notify deployment status
-          run: |
-            if [ "${{ needs.deploy-application.result }}" == "success" ]; then
-              echo "✅ Deployment successful!"
-              echo "🚀 Both IRSA and Pod Identity deployments are running"
-              echo "🔐 Pod Identity addon is active and ready"
-            else
-              echo "❌ Deployment failed!"
-              echo "🔍 Check the logs above for details"
-            fi
+      - name: Verify Backend Infrastructure
+        run: |
+          echo "🔍 Verifying Terraform backend infrastructure..."
+          
+          # Check if S3 bucket exists
+          if aws s3api head-bucket --bucket "thrive-cluster-test-terraform-state" 2>/dev/null; then
+            echo "✅ S3 backend bucket exists"
+          else
+            echo "❌ S3 backend bucket not found!"
+            echo "💡 Please run the 'Setup Terraform Backend' workflow first"
+            exit 1
+          fi
+          
+          # Check if DynamoDB table exists
+          if aws dynamodb describe-table --table-name "thrive-cluster-test-terraform-locks" --region ${{ env.AWS_REGION }} >/dev/null 2>&1; then
+            echo "✅ DynamoDB lock table exists"
+          else
+            echo "❌ DynamoDB lock table not found!"
+            echo "💡 Please run the 'Setup Terraform Backend' workflow first"
+            exit 1
+          fi
+      - name: Terraform Init
+        run: |
+          echo "🔄 Initializing Terraform with S3 backend..."
+          terraform init -backend-config="bucket=thrive-cluster-test-terraform-state" -backend-config="key=terraform.tfstate" -backend-config="region=${{ env.AWS_REGION }}" -backend-config="dynamodb_table=thrive-cluster-test-terraform-locks" -backend-config="encrypt=true"
+          echo "✅ Terraform initialized with S3 backend"
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="github_repo=$GITHUB_REPO" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -out=tfplan
+      - name: Terraform Apply
+        id: terraform-apply
+        run: |
+          echo "🔧 Running terraform apply with S3 backend..."
+          
+          # Run terraform apply (state will be automatically saved to S3)
+          terraform apply \
+            -var="github_repo=$GITHUB_REPO" \
+            -var="aws_account_id=$AWS_ACCOUNT_ID" \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+            -auto-approve
+          
+          # Verify state is accessible
+          echo "📋 Resources in state:"
+          terraform state list
+          echo "✅ State file is stored in S3 backend"
+  deploy-application:
+    needs: [build-and-push, deploy-infrastructure]
+    if: always() && needs.deploy-infrastructure.result == 'success'
+    runs-on: ubuntu-latest
+    environment: AWS_ACCESS_KEY_ID
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get ECR repository URI and AWS Account ID
+        id: get-ecr
+        run: |
+          ECR_REPO=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ECR_REPO=$ECR_REPO" >> $GITHUB_OUTPUT
+          echo "CLUSTER_NAME=${{ env.CLUSTER_NAME }}" >> $GITHUB_OUTPUT
+          echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ steps.get-ecr.outputs.CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Install Metrics Server (Required for HPA)
+        run: |
+          echo " Installing Metrics Server for HPA support..."
+          
+          # Check if Metrics Server is already installed
+          if kubectl get deployment metrics-server -n kube-system >/dev/null 2>&1; then
+            echo " Metrics Server already installed"
+          else
+            echo " Installing Metrics Server..."
+            kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+            
+            # Wait for Metrics Server to be ready
+            echo " Waiting for Metrics Server to be ready..."
+            kubectl wait --for=condition=available --timeout=300s deployment/metrics-server -n kube-system
+            
+            echo " Metrics Server installed and ready!"
+          fi
+          
+          # Verify Metrics Server is working
+          echo "🔍 Verifying Metrics Server..."
+          kubectl top nodes || echo "⚠️ Metrics Server not ready yet, but installation completed"
+      - name: Deploy to EKS with Kustomize
+        run: |
+          # Debug: Show current directory and files
+          echo "Current directory: $(pwd)"
+          echo "Files in k8s directory:"
+          ls -la k8s/
+          echo "Files in k8s/base directory:"
+          ls -la k8s/base/
+          
+          # Update Kustomize configuration with dynamic values
+          echo "🔧 Updating Kustomize configuration with dynamic values..."
+          
+          # Update all Kubernetes manifests with correct values
+          # Replace ACCOUNT_ID and REGION placeholders in all YAML files
+          find k8s/base -name "*.yaml" -exec sed -i "s|ACCOUNT_ID|${{ steps.get-ecr.outputs.AWS_ACCOUNT_ID }}|g" {} \;
+          find k8s/base -name "*.yaml" -exec sed -i "s|REGION|${{ env.AWS_REGION }}|g" {} \;
+          
+          # Update ECR image URI in kustomization.yaml
+          sed -i "s|ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/hello-world|${{ steps.get-ecr.outputs.ECR_REPO }}|g" k8s/base/kustomization.yaml
+          # Update image tag
+          sed -i "s|:latest|:${{ env.IMAGE_TAG }}|g" k8s/base/kustomization.yaml
+          
+          # Show the updated kustomization file for debugging
+          echo "📋 Updated kustomization.yaml:"
+          cat k8s/base/kustomization.yaml
+          
+          # Build and preview the Kustomize output
+          echo "🔍 Building Kustomize configuration..."
+          kubectl kustomize k8s/base > kustomize-output.yaml
+          echo "📋 Generated Kustomize output:"
+          cat kustomize-output.yaml
+          
+          # Deploy using Kustomize
+          echo "🚀 Deploying application with Kustomize..."
+          kubectl apply -k k8s/base
+          
+          echo "✅ All Kubernetes resources applied successfully with Kustomize!"
+      - name: Verify deployments exist
+        run: |
+          echo "🔍 Verifying deployments were created..."
+          kubectl get deployment hello-world -n hello-world || { echo "❌ IRSA deployment not found"; exit 1; }
+          kubectl get deployment hello-world-pod-identity -n hello-world || { echo "❌ Pod Identity deployment not found"; exit 1; }
+          echo "✅ Both deployments found"
+      - name: Debug pod status
+        run: |
+          echo "🔍 Checking pod status and events..."
+          echo "📋 Pods in hello-world namespace:"
+          kubectl get pods -n hello-world -o wide
+          echo ""
+          echo "📋 Service Accounts:"
+          kubectl get serviceaccounts -n hello-world
+          echo ""
+          echo "📋 Pod events:"
+          kubectl get events -n hello-world --sort-by='.lastTimestamp'
+          echo ""
+          echo "📋 IRSA Deployment status:"
+          kubectl describe deployment hello-world -n hello-world
+          echo ""
+          echo "📋 Pod Identity Deployment status:"
+          kubectl describe deployment hello-world-pod-identity -n hello-world
+      - name: Verify HPA is working
+        run: |
+          echo "📊 Checking HPA status..."
+          echo "📋 HPA details:"
+          kubectl get hpa -n hello-world -o wide
+          echo ""
+          echo "📋 HPA description:"
+          kubectl describe hpa hello-world-hpa -n hello-world
+          echo ""
+          echo "📋 Pod metrics (if available):"
+          kubectl top pods -n hello-world || echo "⚠️ Metrics not available yet (this is normal for new deployments)"
+          echo ""
+          echo "📋 ReplicaSet status:"
+          kubectl get rs -n hello-world
+          echo ""
+          echo "📋 ServiceAccount status:"
+          kubectl get sa hello-world-sa -n hello-world -o yaml
+      - name: Verify Pod Identity setup
+        run: |
+          echo "🔍 Verifying Pod Identity configuration..."
+          echo "📋 Pod Identity ServiceAccount:"
+          kubectl get sa hello-world-pod-identity-sa -n hello-world -o yaml
+          echo ""
+          echo "📋 EKS Addons (checking for Pod Identity):"
+          aws eks describe-addon --cluster-name thrive-cluster-test --addon-name eks-pod-identity-agent --region ${{ env.AWS_REGION }} || echo "⚠️ Pod Identity addon not found"
+          echo ""
+          echo "📋 Pod Identity pods status:"
+          kubectl get pods -n hello-world -l app=hello-world-pod-identity
+          echo ""
+          echo "📋 Pod Identity pod logs (first few lines):"
+          kubectl logs -n hello-world -l app=hello-world-pod-identity --tail=5 || echo "⚠️ No logs available yet"
+      - name: Wait for deployments
+        run: |
+          echo "⏳ Waiting for deployments to be ready..."
+          kubectl rollout status deployment/hello-world -n hello-world --timeout=300s
+          kubectl rollout status deployment/hello-world-pod-identity -n hello-world --timeout=300s
+      - name: Verify deployments
+        run: |
+          echo "🔍 Final verification..."
+          echo "📋 IRSA Pods:"
+          kubectl get pods -l app=hello-world -n hello-world
+          echo ""
+          echo "📋 Pod Identity Pods:"
+          kubectl get pods -l app=hello-world-pod-identity -n hello-world
+          echo ""
+          echo "📋 Services:"
+          kubectl get services -n hello-world
+          echo ""
+          echo "📋 Ingress:"
+          kubectl get ingress -n hello-world
+  notify:
+    needs: [deploy-application]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy-application.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "🚀 Both IRSA and Pod Identity deployments are running"
+            echo "🔐 Pod Identity addon is active and ready"
+          else
+            echo "❌ Deployment failed!"
+            echo "🔍 Check the logs above for details"
+          fi
