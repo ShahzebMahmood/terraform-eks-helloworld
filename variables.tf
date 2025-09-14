@@ -93,7 +93,7 @@ variable "tags" {
     Project     = "Thrive_Cluster_Test"
     Environment = "dev"
     ManagedBy   = "Terraform"
-    Owner       = "DevOps Team"
+    Owner       = "DevOps-Team"
     CostCenter  = "Engineering"
     Application = "Hello-World"
   }
