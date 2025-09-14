@@ -201,6 +201,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
+          echo "📋 Running terraform plan..."
           terraform plan \
             -var="github_repo=$GITHUB_REPO" \
             -var="aws_account_id=$AWS_ACCOUNT_ID" \
@@ -208,23 +209,34 @@ jobs:
             -var="aws_secret_access_key=placeholder" \
             -lock-timeout=5m \
             -out=tfplan
+          
+          echo "✅ Terraform plan completed"
+          echo "📄 Plan file created:"
+          ls -la tfplan
 
       - name: Terraform Apply
         id: terraform-apply
         run: |
           echo "🔧 Running terraform apply with S3 backend..."
           
-          # Check if plan file exists
+          # Check if plan file exists and show its details
           if [ ! -f "tfplan" ]; then
             echo "❌ Plan file 'tfplan' not found!"
+            echo "📁 Current directory contents:"
+            ls -la
             exit 1
           fi
           
+          echo "📄 Plan file exists, size: $(ls -lh tfplan | awk '{print $5}')"
+          echo "🔍 Plan file details:"
+          ls -la tfplan
+          
           # Run terraform apply using the plan file (state will be automatically saved to S3)
+          echo "🚀 Starting terraform apply..."
           if terraform apply tfplan; then
             echo "✅ Terraform apply completed successfully"
           else
-            echo "❌ Terraform apply failed"
+            echo "❌ Terraform apply failed with exit code $?"
             exit 1
           fi
           
@@ -238,8 +250,7 @@ jobs:
           echo "✅ Terraform infrastructure deployment completed"
 
   deploy-application:
-    needs: [build-and-push, deploy-infrastructure]
-    if: always() && needs.deploy-infrastructure.result == 'success'
+    needs: [build-and-push]
     runs-on: ubuntu-latest
     environment: AWS_OIDC
     permissions:
