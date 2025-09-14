@@ -116,6 +116,6 @@ module "billing" {
 module "metrics_server" {
   source = "./modules/metrics-server"
   tags   = var.tags
-  
+
   depends_on = [module.eks]
 }
