@@ -68,6 +68,50 @@ I've put together a complete DevOps pipeline that covers everything from infrast
 - **Encrypted state** in S3 backend
 - **Dual Authentication**: Both IRSA (legacy) and Pod Identity (modern) for AWS service access
 
+## Authentication Options
+
+This project supports **two authentication methods** for pods to access AWS services. Both are deployed by default, giving you flexibility to choose:
+
+### Option 1: IRSA (IAM Roles for Service Accounts) - Legacy
+**Deployment**: `hello-world` (2 replicas)
+- ✅ **Mature and stable** - Been around since 2019
+- ✅ **Wide compatibility** - Works with all AWS services
+- ✅ **Manual OIDC setup** - Full control over configuration
+- ⚠️ **More complex** - Requires manual OIDC provider management
+- ⚠️ **Slower token refresh** - Standard AWS token lifetime
+
+### Option 2: Pod Identity - Modern (Recommended)
+**Deployment**: `hello-world-pod-identity` (1 replica)
+- ✅ **AWS recommended** - Latest authentication method
+- ✅ **Better performance** - Faster token refresh
+- ✅ **Simpler setup** - EKS addon handles everything
+- ✅ **Enhanced security** - Shorter token lifetime
+- ✅ **Future-proof** - AWS's direction for pod authentication
+
+### Which Should You Use?
+
+| Use Case | Recommendation |
+|----------|---------------|
+| **New projects** | 🎯 **Pod Identity** - Modern, performant, AWS recommended |
+| **Existing IRSA setups** | 🔄 **Either** - Both work identically |
+| **Complex OIDC needs** | 🔧 **IRSA** - More control over configuration |
+| **Maximum performance** | ⚡ **Pod Identity** - Faster token refresh |
+| **Learning/Testing** | 🧪 **Both** - Compare and learn |
+
+### Switching Between Methods
+
+**To use only Pod Identity:**
+```bash
+kubectl scale deployment hello-world --replicas=0 -n hello-world
+kubectl scale deployment hello-world-pod-identity --replicas=2 -n hello-world
+```
+
+**To use only IRSA:**
+```bash
+kubectl scale deployment hello-world-pod-identity --replicas=0 -n hello-world
+kubectl scale deployment hello-world --replicas=2 -n hello-world
+```
+
 ## Quick Deployment
 
 ### Prerequisites
@@ -104,9 +148,14 @@ kubectl get ingress hello-world-ingress -n hello-world
 ```
 
 ### Access Your App
-- **Load Balancer URL**: Check ingress output
-- **Local testing**: `kubectl port-forward service/hello-world-service 8080:80 -n hello-world`
+
+**Both deployments are available:**
+
+- **IRSA App**: `kubectl port-forward service/hello-world-service 8080:80 -n hello-world`
+- **Pod Identity App**: `kubectl port-forward service/hello-world-pod-identity-service 8081:80 -n hello-world`
+- **Load Balancer URL**: Check ingress output (routes to IRSA by default)
 - **Monitor**: `kubectl get hpa -n hello-world` (auto-scaling)
+- **Check both deployments**: `kubectl get pods -n hello-world`
 
 ## Cleaning Up
 
@@ -141,12 +190,34 @@ terraform destroy
    kubectl get services -n hello-world
    ```
 
+4. **Authentication Issues**
+   ```bash
+   # Check Pod Identity addon
+   aws eks describe-addon --cluster-name thrive-cluster-test --addon-name eks-pod-identity-agent
+   
+   # Check service accounts
+   kubectl get serviceaccounts -n hello-world
+   
+   # Check pod AWS environment
+   kubectl exec -it <pod-name> -n hello-world -- env | grep AWS
+   
+   # Test both deployments
+   kubectl get pods -n hello-world -l app=hello-world
+   kubectl get pods -n hello-world -l app=hello-world-pod-identity
+   ```
+
 ## Learning Resources
 
+### General
 - [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest)
 - [Amazon EKS Documentation](https://docs.aws.amazon.com/eks/)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
 - [GitHub Actions](https://docs.github.com/en/actions)
+
+### Authentication Methods
+- [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) - Modern approach
+- [IRSA (IAM Roles for Service Accounts)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) - Legacy approach
+- [Pod Identity vs IRSA Comparison](https://aws.amazon.com/blogs/containers/introducing-eks-pod-identity/) - AWS blog post
 
 ## Need Help?
 
