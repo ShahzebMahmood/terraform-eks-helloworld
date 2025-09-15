@@ -8,6 +8,14 @@ on:
         required: true
         default: ''
         type: string
+      destroy_backend:
+        description: 'Also destroy Terraform backend (S3 + DynamoDB)? WARNING: You will need to re-run setup-backend.yaml'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 env:
   AWS_REGION: us-east-1
