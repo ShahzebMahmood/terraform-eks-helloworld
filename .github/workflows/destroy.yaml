@@ -435,51 +435,42 @@ jobs:
           fi
 
       - name: Clean up Terraform Backend (Optional)
+        if: github.event.inputs.destroy_backend == 'true'
         run: |
           echo "🧹 Cleaning up Terraform backend resources..."
-          echo ""
-          echo "⚠️  WARNING: This will destroy the Terraform state backend!"
+          echo "⚠️  WARNING: Destroying Terraform state backend as requested!"
           echo "💡 You will need to re-run 'Setup Terraform Backend' workflow to deploy again"
           echo ""
-          read -p "Type 'DESTROY-BACKEND' to destroy S3 bucket and DynamoDB table: " confirm
           
-          if [ "$confirm" = "DESTROY-BACKEND" ]; then
-            echo "🗑️  Destroying backend resources..."
-            
-            # Delete S3 bucket contents first
-            echo "📦 Emptying S3 bucket..."
-            aws s3 rm s3://thrive-cluster-test-terraform-state --recursive --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ S3 bucket already empty or doesn't exist"
-            
-            # Delete all versions and delete markers
-            echo "🗂️  Deleting all S3 object versions..."
-            aws s3api delete-objects --bucket thrive-cluster-test-terraform-state --delete "$(aws s3api list-object-versions --bucket thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No versions to delete"
-            aws s3api delete-objects --bucket thrive-cluster-test-terraform-state --delete "$(aws s3api list-object-versions --bucket thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No delete markers to remove"
-            
-            # Delete S3 bucket
-            echo "🪣 Deleting S3 bucket..."
-            aws s3 rb s3://thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ S3 bucket already deleted or doesn't exist"
-            
-            # Delete DynamoDB table
-            echo "📊 Deleting DynamoDB table..."
-            aws dynamodb delete-table --table-name thrive-cluster-test-terraform-locks --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ DynamoDB table already deleted or doesn't exist"
-            
-            # Delete GitHub Actions IAM role and policy
-            echo "👤 Deleting GitHub Actions IAM role and policy..."
-            aws iam detach-role-policy --role-name thrive-cluster-test-github-actions-role --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/thrive-cluster-test-github-actions-policy" 2>/dev/null || echo "ℹ️ Policy already detached"
-            aws iam delete-policy --policy-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):policy/thrive-cluster-test-github-actions-policy" 2>/dev/null || echo "ℹ️ Policy already deleted"
-            aws iam delete-role --role-name thrive-cluster-test-github-actions-role 2>/dev/null || echo "ℹ️ Role already deleted"
-            
-            # Delete OIDC provider
-            echo "🔐 Deleting GitHub OIDC provider..."
-            aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "arn:aws:iam::$(aws sts get-caller-identity --query Account --output text):oidc-provider/token.actions.githubusercontent.com" 2>/dev/null || echo "ℹ️ OIDC provider already deleted"
-            
-            echo "✅ Backend resources destroyed successfully!"
-            echo "💡 To deploy again, run 'Setup Terraform Backend' workflow first"
-          else
-            echo "🔒 Backend cleanup cancelled - S3 bucket and DynamoDB table preserved"
-            echo "💡 Backend resources kept for future deployments"
-          fi
-          echo ""
+          # Delete S3 bucket contents first
+          echo "📦 Emptying S3 bucket..."
+          aws s3 rm s3://thrive-cluster-test-terraform-state --recursive --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ S3 bucket already empty or doesn't exist"
+          
+          # Delete all versions and delete markers
+          echo "🗂️  Deleting all S3 object versions..."
+          aws s3api delete-objects --bucket thrive-cluster-test-terraform-state --delete "$(aws s3api list-object-versions --bucket thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} --output json --query '{Objects: Versions[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No versions to delete"
+          aws s3api delete-objects --bucket thrive-cluster-test-terraform-state --delete "$(aws s3api list-object-versions --bucket thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} --output json --query '{Objects: DeleteMarkers[].{Key:Key,VersionId:VersionId}}' 2>/dev/null)" --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ No delete markers to remove"
+          
+          # Delete S3 bucket
+          echo "🪣 Deleting S3 bucket..."
+          aws s3 rb s3://thrive-cluster-test-terraform-state --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ S3 bucket already deleted or doesn't exist"
+          
+          # Delete DynamoDB table
+          echo "📊 Deleting DynamoDB table..."
+          aws dynamodb delete-table --table-name thrive-cluster-test-terraform-locks --region ${{ env.AWS_REGION }} 2>/dev/null || echo "ℹ️ DynamoDB table already deleted or doesn't exist"
+          
+          # Delete GitHub Actions IAM role and policy
+          echo "👤 Deleting GitHub Actions IAM role and policy..."
+          aws iam detach-role-policy --role-name thrive-cluster-test-github-actions-role --policy-arn "arn:aws:iam::$AWS_ACCOUNT_ID:policy/thrive-cluster-test-github-actions-policy" 2>/dev/null || echo "ℹ️ Policy already detached"
+          aws iam delete-policy --policy-arn "arn:aws:iam::$AWS_ACCOUNT_ID:policy/thrive-cluster-test-github-actions-policy" 2>/dev/null || echo "ℹ️ Policy already deleted"
+          aws iam delete-role --role-name thrive-cluster-test-github-actions-role 2>/dev/null || echo "ℹ️ Role already deleted"
+          
+          # Delete OIDC provider
+          echo "🔐 Deleting GitHub OIDC provider..."
+          aws iam delete-open-id-connect-provider --open-id-connect-provider-arn "arn:aws:iam::$AWS_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com" 2>/dev/null || echo "ℹ️ OIDC provider already deleted"
+          
+          echo "✅ Backend resources destroyed successfully!"
+          echo "💡 To deploy again, run 'Setup Terraform Backend' workflow first"
 
       - name: Destruction Summary
         run: |
@@ -497,10 +488,14 @@ jobs:
           echo "  ✅ OIDC Identity Providers"
           echo "  ✅ Kubernetes Resources (Deployments, Services, Ingress, etc.)"
           echo ""
-          echo "🗂️  Terraform backend resources (S3 + DynamoDB) were optionally destroyed"
-          echo "💰 All AWS resources have been destroyed"
-          echo "💡 You can now run the deploy workflow to recreate everything"
+          if [ "${{ github.event.inputs.destroy_backend }}" = "true" ]; then
+            echo "🗂️  Terraform backend resources (S3 + DynamoDB) were also destroyed"
+            echo "⚠️  To deploy again, run 'Setup Terraform Backend' workflow first!"
+          else
+            echo "🗂️  Terraform backend resources (S3 + DynamoDB) were preserved"
+            echo "💡 You can run the deploy workflow directly to recreate everything"
+          fi
+          echo ""
+          echo "💰 All infrastructure resources have been destroyed"
           echo "📊 Check your AWS Console to verify all resources are gone"
           echo "🔒 Your AWS account is now clean and ready for the next deployment"
-          echo ""
-          echo "⚠️  If you destroyed the backend, run 'Setup Terraform Backend' first before deploying again"
