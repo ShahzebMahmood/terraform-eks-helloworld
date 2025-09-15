@@ -96,8 +96,18 @@ kubectl get ingress hello-world-ingress -n hello-world
 - **Alerts**: AWS Console → SNS → Topics → `thrive-cluster-test-alerts`
 
 ### Troubleshooting
+
+**Permission Errors During Destroy:**
 ```bash
-# Common debugging commands
+# If terraform destroy fails with permission errors, update the GitHub Actions policy:
+./update-github-actions-policy.sh
+
+# Or update manually via AWS CLI:
+aws iam create-policy-version --policy-arn arn:aws:iam::ACCOUNT_ID:policy/thrive-cluster-test-github-actions-policy --policy-document file://updated-policy.json --set-as-default
+```
+
+**Common Debugging Commands:**
+```bash
 kubectl get pods -n hello-world
 kubectl describe pod <pod-name> -n hello-world
 kubectl logs <pod-name> -n hello-world
